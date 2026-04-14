@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Para ti, con todo mi amor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="main-container">
+        
+        <div class="content-section">
+            <div class="text-container">
+                <h1 id="title" class="hidden">Para el amor de mi vida:</h1>
+                <p id="phrase1" class="typewriter hidden"></p>
+                <p id="phrase2" class="typewriter hidden"></p>
+                
+                <div id="counter-box" class="counter hidden">
+                    <p class="counter-label">Nuestro amor floreció hace:</p>
+                    <div id="timer" class="timer-display">
+                        <span id="days">00</span>d 
+                        <span id="hours">00</span>h 
+                        <span id="minutes">00</span>m 
+                        <span id="seconds">00</span>s
+                    </div>
+                </div>
+
+                <div id="action-area" class="hidden">
+                    <p class="signature">— Te amaré siempre —</p>
+                    <button id="surprise-btn" class="glow-btn">Abrir Sorpresa ❤️</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tree-section">
+            <canvas id="magicTree"></canvas>
+        </div>
+
+    </div>
+
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="heart-card-wrapper">
+            <div class="heart-card">
+                <div class="card-content">
+                    <h2 class="card-title">Te Amo</h2>
+                    <div class="images-grid">
+                        <div class="img-wrapper"><img src="amorcito 1.jpg" alt="Nosotros 1" onerror="this.src='https://via.placeholder.com/150x200/ffb3c1/c9184a?text=Foto+1'"></div>
+                        <div class="img-wrapper"><img src="amorcito2.JPG" alt="Nosotros 2" onerror="this.src='https://via.placeholder.com/150x200/ffb3c1/c9184a?text=Foto+2'"></div>
+                    </div>
+                    <button id="close-btn" class="close-btn">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

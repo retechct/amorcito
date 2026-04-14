@@ -1,0 +1,300 @@
+/* --- VARIABLES Y RESET --- */
+:root {
+    --bg-color: #fff0f3; 
+    --text-dark: #590d22;
+    --text-primary: #a4133c;
+    --text-secondary: #c9184a;
+    --accent-light: #ffb3c1;
+    --accent-glow: rgba(255, 77, 109, 0.4);
+    
+    --font-title: 'Dancing Script', cursive;
+    --font-text: 'Poppins', sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-color);
+    font-family: var(--font-text);
+    color: var(--text-dark);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow-x: hidden;
+}
+
+/* --- LAYOUT PRINCIPAL --- */
+.main-container {
+    display: flex;
+    width: 90%;
+    max-width: 1200px;
+    height: 90vh;
+    max-height: 800px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 30px;
+    box-shadow: 0 20px 50px rgba(164, 19, 60, 0.1);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+}
+
+.content-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px;
+    z-index: 2;
+}
+
+.tree-section {
+    flex: 1;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, transparent 70%);
+}
+
+#magicTree {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* --- TEXTOS Y ANIMACIONES --- */
+h1 {
+    font-family: var(--font-title);
+    color: var(--text-primary);
+    font-size: 3rem;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(255, 179, 193, 0.5);
+}
+
+.typewriter {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin-bottom: 10px;
+    color: var(--text-secondary);
+    border-right: 2px solid var(--text-primary);
+    white-space: pre-wrap;
+}
+
+@keyframes blink-cursor { 50% { border-color: transparent; } }
+
+.counter {
+    margin: 30px 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 15px;
+    border: 1px solid var(--accent-light);
+    box-shadow: 0 10px 20px rgba(255, 179, 193, 0.2);
+}
+
+.counter-label {
+    font-size: 1rem;
+    color: var(--text-dark);
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.timer-display {
+    font-family: var(--font-title);
+    font-size: 2.2rem;
+    color: var(--text-primary);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.signature {
+    font-family: var(--font-title);
+    font-size: 1.8rem;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+}
+
+/* --- BOTÓN --- */
+.glow-btn {
+    background: linear-gradient(45deg, #ff4d6d, #c9184a);
+    color: white;
+    border: none;
+    padding: 15px 35px;
+    font-size: 1.1rem;
+    font-family: var(--font-text);
+    font-weight: 600;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 0 20px var(--accent-glow);
+    transition: all 0.3s ease;
+}
+
+.glow-btn:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 10px 30px rgba(201, 24, 74, 0.6);
+}
+
+/* --- VISIBILIDAD --- */
+.hidden { opacity: 0; visibility: hidden; }
+.fade-in { animation: fadeIn 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(20px); visibility: visible; }
+    100% { opacity: 1; transform: translateY(0); visibility: visible; }
+}
+
+/* --- MODAL SORPRESA --- */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(89, 13, 34, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.heart-card-wrapper {
+    width: 450px;
+    height: 450px;
+    background: linear-gradient(135deg, #fff0f3, #ffb3c1);
+    
+    /* Máscara de corazón */
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M256 464c-12.2 0-23.7-5.5-31.4-15L43.4 231c-38.3-43.5-35.4-110 6.6-150.3C88.2 44.1 149.2 41.7 190.6 77c19 16.2 34 36.6 43.1 59.5 5.5 13.9 25.5 13.9 31.1 0 9.1-22.9 24.1-43.3 43.1-59.5 41.4-35.3 102.4-32.9 140.6 3.7 42 40.3 44.9 106.8 6.6 150.3L287.4 449c-7.7 9.5-19.2 15-31.4 15z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M256 464c-12.2 0-23.7-5.5-31.4-15L43.4 231c-38.3-43.5-35.4-110 6.6-150.3C88.2 44.1 149.2 41.7 190.6 77c19 16.2 34 36.6 43.1 59.5 5.5 13.9 25.5 13.9 31.1 0 9.1-22.9 24.1-43.3 43.1-59.5 41.4-35.3 102.4-32.9 140.6 3.7 42 40.3 44.9 106.8 6.6 150.3L287.4 449c-7.7 9.5-19.2 15-31.4 15z'/%3E%3C/svg%3E");
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transform: scale(0.5);
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-overlay.active .heart-card-wrapper {
+    transform: scale(min(1, 90vw/450px)); 
+}
+
+/* === CORRECCIÓN CENTRADO DE TARJETA === */
+.card-content {
+    width: 280px; 
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Cambiamos a positivo para que baje un poco a la zona ancha del corazón */
+    margin-top: 15px; 
+}
+
+.card-title {
+    font-family: var(--font-title);
+    color: var(--text-dark);
+    font-size: 3rem; 
+    margin-bottom: 20px; /* Separación de las fotos */
+    line-height: 1;
+}
+
+.images-grid {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.img-wrapper {
+    width: 95px; 
+    height: 125px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    border: 3px solid white;
+}
+
+.img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+
+.close-btn {
+    background: transparent;
+    border: 1px solid var(--text-dark);
+    color: var(--text-dark);
+    padding: 8px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: var(--font-text);
+    transition: background 0.3s, color 0.3s;
+}
+
+.close-btn:hover { background: var(--text-dark); color: white; }
+
+/* =======================================================
+   === FIX DEFINITIVO PARA CELULARES (Responsive) ===
+   ======================================================= */
+@media (max-width: 850px) {
+    .main-container {
+        flex-direction: column-reverse; 
+        height: 100vh;
+        max-height: none;
+        width: 100%;
+        border-radius: 0;
+        overflow-y: auto;
+    }
+
+    .tree-section {
+        flex: none;
+        height: 50vh; 
+        width: 100%;
+    }
+
+    .content-section {
+        flex: none;
+        min-height: 50vh;
+        padding: 20px;
+        text-align: center;
+        background: linear-gradient(to top, rgba(255,255,255,1) 80%, rgba(255,255,255,0));
+    }
+
+    h1 { font-size: 2.2rem; }
+    .typewriter { font-size: 1rem; }
+    .timer-display { font-size: 1.5rem; justify-content: center; }
+    .counter { margin: 15px 0; padding: 10px; }
+
+    /* Ajustes EXCLUSIVOS para que la tarjeta encaje perfecto en celular */
+    .card-content { 
+        margin-top: 25px; /* Empuja el contenido hacia abajo a la parte ancha */
+        width: 220px; 
+    }
+    .card-title { 
+        font-size: 2.2rem; 
+        margin-bottom: 12px; /* Más compacto */
+    }
+    .images-grid { 
+        gap: 10px; 
+        margin-bottom: 15px; 
+    }
+    .img-wrapper { 
+        width: 70px; /* Ligeramente más chicas para no chocar bordes */
+        height: 95px; 
+        border-width: 2px; 
+    }
+    .close-btn { 
+        padding: 6px 15px; 
+        font-size: 0.9rem; 
+    }
+}
