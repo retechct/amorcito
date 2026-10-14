@@ -2,58 +2,185 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f3ede2">
+    <meta name="description" content="Una pequeña sorpresa hecha con mucho amor.">
     <title>Para ti, con todo mi amor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
-    <div class="main-container">
-        
-        <div class="content-section">
-            <div class="text-container">
-                <h1 id="title" class="hidden">Para el amor de mi vida:</h1>
-                <p id="phrase1" class="typewriter hidden"></p>
-                <p id="phrase2" class="typewriter hidden"></p>
-                
-                <div id="counter-box" class="counter hidden">
-                    <p class="counter-label">Nuestro amor floreció hace:</p>
-                    <div id="timer" class="timer-display">
-                        <span id="days">00</span>d 
-                        <span id="hours">00</span>h 
-                        <span id="minutes">00</span>m 
-                        <span id="seconds">00</span>s
+    <main>
+        <section id="inicio" class="hero-section reader-page page-active" data-page-title="Portada" aria-labelledby="title">
+            <div class="hero-shell">
+                <div class="content-section">
+                    <div class="text-container">
+                        <p class="eyebrow">Una historia que sigue floreciendo</p>
+                        <h1 id="title" class="hidden">Para el amor de mi vida:</h1>
+                        <p id="phrase1" class="typewriter hidden"></p>
+                        <p id="phrase2" class="typewriter hidden"></p>
+
+                        <div id="counter-box" class="counter hidden">
+                            <p class="counter-label">Nuestro amor floreció hace:</p>
+                            <div id="timer" class="timer-display" role="timer" aria-label="Tiempo juntos">
+                                <span class="time-unit"><strong id="days">00</strong><small>días</small></span>
+                                <span class="time-unit"><strong id="hours">00</strong><small>horas</small></span>
+                                <span class="time-unit"><strong id="minutes">00</strong><small>min</small></span>
+                                <span class="time-unit"><strong id="seconds">00</strong><small>seg</small></span>
+                            </div>
+                        </div>
+
+                        <div id="action-area" class="action-area hidden">
+                            <p class="signature">— Te amaré siempre —</p>
+                            <div class="hero-actions">
+                                <button id="surprise-btn" class="button button-primary" type="button" aria-haspopup="dialog" aria-controls="modal-overlay">
+                                    Ver nuestros recuerdos <span aria-hidden="true">♡</span>
+                                </button>
+                                <a class="button button-ghost" href="#prologo">Comenzar nuestro libro ↓</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="action-area" class="hidden">
-                    <p class="signature">— Te amaré siempre —</p>
-                    <button id="surprise-btn" class="glow-btn">Abrir Sorpresa ❤️</button>
+                <div class="tree-section" aria-label="Árbol de corazones animado">
+                    <canvas id="magicTree" aria-hidden="true"></canvas>
+                    <p class="tree-caption"><span>♡</span> Nuestro amor sigue creciendo <span>♡</span></p>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="tree-section">
-            <canvas id="magicTree"></canvas>
-        </div>
+        <section id="prologo" class="prologue-section reader-page" data-page-title="Prólogo" aria-labelledby="prologue-title" aria-hidden="true">
+            <div class="chapter-heading">
+                <span>Prólogo</span>
+                <span aria-hidden="true">01</span>
+            </div>
 
-    </div>
-
-    <div id="modal-overlay" class="modal-overlay">
-        <div class="heart-card-wrapper">
-            <div class="heart-card">
-                <div class="card-content">
-                    <h2 class="card-title">Te Amo</h2>
-                    <div class="images-grid">
-                        <div class="img-wrapper"><img src="amorcito 1.jpg" alt="Nosotros 1" onerror="this.src='https://via.placeholder.com/150x200/ffb3c1/c9184a?text=Foto+1'"></div>
-                        <div class="img-wrapper"><img src="amorcito2.JPG" alt="Nosotros 2" onerror="this.src='https://via.placeholder.com/150x200/ffb3c1/c9184a?text=Foto+2'"></div>
+            <article class="book-spread">
+                <div class="book-page photo-page">
+                    <div class="featured-photo-frame">
+                        <img id="graduation-photo" src="image.png" data-fallback="amorcito2.JPG" alt="Nuestro recuerdo juntos en la graduación">
+                        <span class="photo-date">Un día para recordar</span>
                     </div>
-                    <button id="close-btn" class="close-btn">Cerrar</button>
+                    <p class="handwritten-note">Tu logro también se convirtió en uno de mis recuerdos favoritos.</p>
+                </div>
+
+                <div class="book-page letter-page">
+                    <p class="section-kicker">Donde comienza este nuevo capítulo</p>
+                    <h2 id="prologue-title">Nuestro libro apenas empieza</h2>
+                    <p class="drop-cap">Hay días que merecen quedarse para siempre. No solo por lo que celebramos, sino por la persona que estaba a nuestro lado cuando sucedió.</p>
+                    <p>Esta página guarda uno de esos momentos: tu sonrisa, todo el camino recorrido y la suerte inmensa de poder compartirlo contigo.</p>
+                    <blockquote>“Que cada mes nos encuentre escribiendo algo nuevo juntos.”</blockquote>
+                    <a class="page-turn" href="#meses">Pasar al archivo mensual <span aria-hidden="true">→</span></a>
+                    <span class="page-number">1</span>
+                </div>
+            </article>
+        </section>
+
+        <section id="meses" class="months-section reader-page" data-page-title="Nuestros meses" aria-labelledby="months-title" aria-hidden="true">
+            <div class="months-shell">
+                <div class="chapter-heading chapter-heading-dark">
+                    <span>Capítulo I · Los meses</span>
+                    <span aria-hidden="true">02</span>
+                </div>
+                <header class="months-header">
+                    <div>
+                        <p class="section-kicker">Nuestro archivo de amor</p>
+                        <h2 id="months-title">Una sorpresa por cada mes</h2>
+                        <p>Cada mes guarda un detalle distinto. Como esta historia empieza de nuevo, solamente la sorpresa actual está disponible; las anteriores esperan su momento.</p>
+                    </div>
+                    <div class="months-summary" aria-label="Resumen de nuestra historia">
+                        <span><strong id="archive-count">0</strong> meses</span>
+                        <span><strong id="days-together">0</strong> días juntos</span>
+                    </div>
+                </header>
+
+                <div id="year-filters" class="year-filters" aria-label="Filtrar sorpresas por año"></div>
+                <div id="months-grid" class="months-grid" aria-live="polite"></div>
+
+                <p class="archive-note">
+                    <span aria-hidden="true">◆</span>
+                    Cada nuevo mes aparecerá automáticamente en este archivo.
+                </p>
+            </div>
+        </section>
+
+        <section id="pregunta" class="question-section reader-page" data-page-title="Sorpresa actual" aria-labelledby="question-title" aria-hidden="true">
+            <div class="petal petal-one" aria-hidden="true"></div>
+            <div class="petal petal-two" aria-hidden="true"></div>
+            <div id="surprise-seal" class="surprise-seal">
+                <p class="section-kicker">Sorpresa de este mes</p>
+                <div class="envelope" aria-hidden="true">
+                    <div class="envelope-flap"></div>
+                    <div class="wax-seal">♡</div>
+                </div>
+                <h2>Hay algo especial esperando por ti</h2>
+                <p>Esta página permanece cerrada hasta que decidas descubrirla.</p>
+                <button id="unlock-surprise" class="button button-primary" type="button">Abrir sorpresa</button>
+            </div>
+
+            <div id="surprise-content" class="question-shell" hidden>
+                <div class="bouquet-side">
+                    <span class="tiny-note">Flores para ti, hoy y siempre</span>
+                    <img class="bouquet-image" src="ramo-rosas-optimized.png" alt="Ramo de rosas, peonías y flores rosadas">
+                </div>
+
+                <div id="question-card" class="question-card">
+                    <div class="chapter-badge">Capítulo II · La sorpresa actual</div>
+                    <div id="question-state">
+                        <p class="section-kicker">Tengo una pregunta importante...</p>
+                        <h2 id="question-title">¿Eres feliz conmigo?</h2>
+                        <p id="question-hint" class="question-hint">Piénsalo bien... aunque mi corazón ya conoce la respuesta.</p>
+                        <div class="answer-zone">
+                            <button id="yes-btn" class="answer-btn yes-btn" type="button">Sí, muchísimo 💗</button>
+                            <button id="no-btn" class="answer-btn no-btn" type="button">No</button>
+                        </div>
+                        <p id="playful-message" class="playful-message" aria-live="polite"></p>
+                    </div>
+
+                    <div id="answer-state" class="answer-state" hidden>
+                        <div class="answer-heart" aria-hidden="true">♥</div>
+                        <p class="section-kicker">Sabía que dirías que sí</p>
+                        <h2>Yo también soy muy feliz contigo</h2>
+                        <p>Gracias por estar en mis días bonitos, por abrazarme en los difíciles y por convertir lo cotidiano en un recuerdo especial. Te elegiría una y mil veces más.</p>
+                        <button id="memory-btn" class="button button-primary" type="button">Volver a nuestros recuerdos</button>
+                    </div>
                 </div>
             </div>
+        </section>
+    </main>
+
+    <nav class="book-navigation" aria-label="Navegación del libro">
+        <button id="page-prev" class="book-nav-button" type="button" aria-label="Página anterior">←</button>
+        <div class="book-progress">
+            <span id="page-title">Portada</span>
+            <div id="page-dots" class="page-dots" aria-hidden="true"></div>
+            <small id="page-status">Página 1 de 4</small>
         </div>
+        <button id="page-next" class="book-nav-button" type="button" aria-label="Página siguiente">→</button>
+    </nav>
+
+    <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-hidden="true">
+        <article class="memory-dialog">
+            <button id="close-btn" class="modal-close" type="button" aria-label="Cerrar recuerdos">×</button>
+            <div class="memory-copy">
+                <p class="section-kicker">Nuestros momentos</p>
+                <h2 id="modal-title">Te amo en cada recuerdo</h2>
+                <p>Lo más bonito nunca fue el lugar ni la fecha, sino compartirlo contigo.</p>
+                <span class="memory-signature">Siempre tú, siempre nosotros.</span>
+            </div>
+            <div class="photo-collage">
+                <figure class="photo-card photo-card-one">
+                    <img src="amorcito 1.jpg" alt="Un recuerdo especial de nosotros">
+                </figure>
+                <figure class="photo-card photo-card-two">
+                    <img src="amorcito2.JPG" alt="Otro recuerdo especial de nosotros">
+                </figure>
+            </div>
+        </article>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=9"></script>
 </body>
 </html>
