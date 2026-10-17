@@ -1,186 +1,707 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#f3ede2">
-    <meta name="description" content="Una pequeña sorpresa hecha con mucho amor.">
-    <title>Para ti, con todo mi amor</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=10">
-</head>
-<body>
-    <main>
-        <section id="inicio" class="hero-section reader-page page-active" data-page-title="Portada" aria-labelledby="title">
-            <div class="hero-shell">
-                <div class="content-section">
-                    <div class="text-container">
-                        <p class="eyebrow">Una historia que sigue floreciendo</p>
-                        <h1 id="title" class="hidden">Para el amor de mi vida:</h1>
-                        <p id="phrase1" class="typewriter hidden"></p>
-                        <p id="phrase2" class="typewriter hidden"></p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f5f0e8" />
+    <meta
+      name="description"
+      content="El archivo de nosotros. Un lugar para volver a nuestras fotos, nuestras cartas y todo lo que nos queda por vivir."
+    />
+    <title>Nosotros — nuestro lugar en el mundo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;450;500;600;700&family=Caveat:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css?v=30" />
+    <script src="script.js?v=30" defer></script>
+  </head>
+  <body class="is-locked">
+    <svg
+      class="icon-library"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <symbol id="i-heart" viewBox="0 0 24 24">
+        <path
+          d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"
+        />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M4 12h16m-6-6 6 6-6 6" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="5" y="10" width="14" height="11" rx="3" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2" />
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M6 18 18 6" />
+      </symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24">
+        <path d="m12 2 2.8 7.2L22 12l-7.2 2.8L12 22l-2.8-7.2L2 12l7.2-2.8Z" />
+      </symbol>
+      <symbol id="i-photo" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="3" />
+        <path d="m3 16 5-5 5 5 3-3 5 5" />
+        <circle cx="16" cy="8" r="1" />
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24">
+        <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />
+      </symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m3 6 9 7 9-7" />
+      </symbol>
+    </svg>
 
-                        <div id="counter-box" class="counter hidden">
-                            <p class="counter-label">Nuestro amor floreció hace:</p>
-                            <div id="timer" class="timer-display" role="timer" aria-label="Tiempo juntos">
-                                <span class="time-unit"><strong id="days">00</strong><small>días</small></span>
-                                <span class="time-unit"><strong id="hours">00</strong><small>horas</small></span>
-                                <span class="time-unit"><strong id="minutes">00</strong><small>min</small></span>
-                                <span class="time-unit"><strong id="seconds">00</strong><small>seg</small></span>
-                            </div>
-                        </div>
-
-                        <div id="action-area" class="action-area hidden">
-                            <p class="signature">— Te amaré siempre —</p>
-                            <div class="hero-actions">
-                                <button id="surprise-btn" class="button button-primary" type="button" aria-haspopup="dialog" aria-controls="modal-overlay">
-                                    Ver nuestros recuerdos <span aria-hidden="true">♡</span>
-                                </button>
-                                <a class="button button-ghost" href="#prologo">Comenzar nuestro libro ↓</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tree-section" aria-label="Árbol de corazones animado">
-                    <canvas id="magicTree" aria-hidden="true"></canvas>
-                    <p class="tree-caption"><span>♡</span> Nuestro amor sigue creciendo <span>♡</span></p>
-                </div>
-            </div>
-        </section>
-
-        <section id="prologo" class="prologue-section reader-page" data-page-title="Prólogo" aria-labelledby="prologue-title" aria-hidden="true">
-            <div class="chapter-heading">
-                <span>Prólogo</span>
-                <span aria-hidden="true">01</span>
-            </div>
-
-            <article class="book-spread">
-                <div class="book-page photo-page">
-                    <div class="featured-photo-frame">
-                        <img id="graduation-photo" src="image.png" data-fallback="amorcito2.JPG" alt="Nuestro recuerdo juntos en la graduación">
-                        <span class="photo-date">Un día para recordar</span>
-                    </div>
-                    <p class="handwritten-note">Tu logro también se convirtió en uno de mis recuerdos favoritos.</p>
-                </div>
-
-                <div class="book-page letter-page">
-                    <p class="section-kicker">Donde comienza este nuevo capítulo</p>
-                    <h2 id="prologue-title">Nuestro libro apenas empieza</h2>
-                    <p class="drop-cap">Hay días que merecen quedarse para siempre. No solo por lo que celebramos, sino por la persona que estaba a nuestro lado cuando sucedió.</p>
-                    <p>Esta página guarda uno de esos momentos: tu sonrisa, todo el camino recorrido y la suerte inmensa de poder compartirlo contigo.</p>
-                    <blockquote>“Que cada mes nos encuentre escribiendo algo nuevo juntos.”</blockquote>
-                    <a class="page-turn" href="#meses">Pasar al archivo mensual <span aria-hidden="true">→</span></a>
-                    <span class="page-number">1</span>
-                </div>
-            </article>
-        </section>
-
-        <section id="meses" class="months-section reader-page" data-page-title="Nuestros meses" aria-labelledby="months-title" aria-hidden="true">
-            <div class="months-shell">
-                <div class="chapter-heading chapter-heading-dark">
-                    <span>Capítulo I · Los meses</span>
-                    <span aria-hidden="true">02</span>
-                </div>
-                <header class="months-header">
-                    <div>
-                        <p class="section-kicker">Nuestro archivo de amor</p>
-                        <h2 id="months-title">Una sorpresa por cada mes</h2>
-                        <p>Cada mes guarda un detalle distinto. Como esta historia empieza de nuevo, solamente la sorpresa actual está disponible; las anteriores esperan su momento.</p>
-                    </div>
-                    <div class="months-summary" aria-label="Resumen de nuestra historia">
-                        <span><strong id="archive-count">0</strong> meses</span>
-                        <span><strong id="days-together">0</strong> días juntos</span>
-                    </div>
-                </header>
-
-                <div id="year-filters" class="year-filters" aria-label="Filtrar sorpresas por año"></div>
-                <div id="months-grid" class="months-grid" aria-live="polite"></div>
-
-                <p class="archive-note">
-                    <span aria-hidden="true">◆</span>
-                    Cada nuevo mes aparecerá automáticamente en este archivo.
-                </p>
-            </div>
-        </section>
-
-        <section id="pregunta" class="question-section reader-page" data-page-title="Sorpresa actual" aria-labelledby="question-title" aria-hidden="true">
-            <div class="petal petal-one" aria-hidden="true"></div>
-            <div class="petal petal-two" aria-hidden="true"></div>
-            <div id="surprise-seal" class="surprise-seal">
-                <p class="section-kicker">Sorpresa de este mes</p>
-                <div class="envelope" aria-hidden="true">
-                    <div class="envelope-flap"></div>
-                    <div class="wax-seal">♡</div>
-                </div>
-                <h2>Hay algo especial esperando por ti</h2>
-                <p>Esta página permanece cerrada hasta que decidas descubrirla.</p>
-                <button id="unlock-surprise" class="button button-primary" type="button">Abrir sorpresa</button>
-            </div>
-
-            <div id="surprise-content" class="question-shell" hidden>
-                <div class="bouquet-side">
-                    <span class="tiny-note">Flores para ti, hoy y siempre</span>
-                    <img class="bouquet-image" src="ramo-rosas-optimized.png" alt="Ramo de rosas, peonías y flores rosadas">
-                </div>
-
-                <div id="question-card" class="question-card">
-                    <div class="chapter-badge">Capítulo II · La sorpresa actual</div>
-                    <div id="question-state">
-                        <p class="section-kicker">Tengo una pregunta importante...</p>
-                        <h2 id="question-title">¿Eres feliz conmigo?</h2>
-                        <p id="question-hint" class="question-hint">Piénsalo bien... aunque mi corazón ya conoce la respuesta.</p>
-                        <div class="answer-zone">
-                            <button id="yes-btn" class="answer-btn yes-btn" type="button">Sí, muchísimo 💗</button>
-                            <button id="no-btn" class="answer-btn no-btn" type="button">No</button>
-                        </div>
-                        <p id="playful-message" class="playful-message" aria-live="polite"></p>
-                    </div>
-
-                    <div id="answer-state" class="answer-state" hidden>
-                        <div class="answer-heart" aria-hidden="true">♥</div>
-                        <p class="section-kicker">Sabía que dirías que sí</p>
-                        <h2>Yo también soy muy feliz contigo</h2>
-                        <p>Gracias por estar en mis días bonitos, por abrazarme en los difíciles y por convertir lo cotidiano en un recuerdo especial. Te elegiría una y mil veces más.</p>
-                        <button id="memory-btn" class="button button-primary" type="button">Volver a nuestros recuerdos</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <nav class="book-navigation" aria-label="Navegación del libro">
-        <button id="page-prev" class="book-nav-button" type="button" aria-label="Página anterior">←</button>
-        <div class="book-progress">
-            <span id="page-title">Portada</span>
-            <div id="page-dots" class="page-dots" aria-hidden="true"></div>
-            <small id="page-status">Página 1 de 4</small>
+    <section id="secret-gate" class="secret-gate" aria-labelledby="gate-title">
+      <div class="gate-grain" aria-hidden="true"></div>
+      <div class="gate-brand">
+        <span class="wordmark">n.</span
+        ><span>UN PEQUEÑO UNIVERSO PARA DOS</span>
+      </div>
+      <div class="gate-layout">
+        <div class="gate-intro">
+          <p class="eyebrow light">Hay cosas que solo tú sabes</p>
+          <h1 id="gate-title">La llave es<br />un <em>recuerdo.</em></h1>
+          <p>
+            Una fecha. Dos personas.<br />Y todo un mundo que empieza al otro
+            lado.
+          </p>
+          <span class="handwritten">Nuestro lugar secreto.</span>
         </div>
-        <button id="page-next" class="book-nav-button" type="button" aria-label="Página siguiente">→</button>
-    </nav>
+        <form id="secret-form" class="secret-form" novalidate>
+          <div id="heart-lock" class="heart-lock">
+            <svg class="lock-art" viewBox="0 0 400 440" aria-hidden="true">
+              <defs>
+                <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+                  <stop stop-color="#f1d6a2" />
+                  <stop offset=".4" stop-color="#b48a4d" />
+                  <stop offset=".7" stop-color="#e0c28b" />
+                  <stop offset="1" stop-color="#8e602e" />
+                </linearGradient>
+                <linearGradient id="wine" x1="0" y1="0" x2=".8" y2="1">
+                  <stop stop-color="#b05a6e" />
+                  <stop offset=".4" stop-color="#843349" />
+                  <stop offset="1" stop-color="#410d20" />
+                </linearGradient>
+                <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+                  <stop stop-color="#ffd6cc" stop-opacity=".5" />
+                  <stop offset="1" stop-color="#ffd6cc" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <g class="shackle">
+                <path
+                  d="M112 192V112a88 88 0 0 1 176 0v80"
+                  fill="none"
+                  stroke="url(#gold)"
+                  stroke-width="24"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M106 169v-57a94 94 0 0 1 184 0"
+                  fill="none"
+                  stroke="#ffe9bd"
+                  stroke-width="3"
+                  opacity=".5"
+                />
+              </g>
+              <g class="heart-shell">
+                <path
+                  d="M200 417C162 383 39 299 27 232 9 137 132 109 200 183c68-74 191-46 173 49-12 67-135 151-173 185Z"
+                  fill="url(#wine)"
+                  stroke="#c37582"
+                  stroke-opacity=".4"
+                />
+                <path
+                  d="M48 214c0-47 77-76 131-26-57-22-87 2-109 28Z"
+                  fill="url(#gloss)"
+                />
+                <path
+                  d="M356 235c-17 61-100 121-149 162"
+                  fill="none"
+                  stroke="#280819"
+                  stroke-width="5"
+                  opacity=".17"
+                />
+              </g>
+            </svg>
+            <div class="combination" role="group" aria-label="La fecha secreta">
+              <div class="dial" data-part="day" data-min="1" data-max="31">
+                <button type="button" data-step="1" aria-label="Aumentar día">
+                  ⌃
+                </button>
+                <input
+                  id="lock-day"
+                  aria-label="Día"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="2"
+                  value="01"
+                  autocomplete="off"
+                />
+                <button type="button" data-step="-1" aria-label="Disminuir día">
+                  ⌄
+                </button>
+                <span>DÍA</span>
+              </div>
+              <div class="dial" data-part="month" data-min="1" data-max="12">
+                <button type="button" data-step="1" aria-label="Aumentar mes">
+                  ⌃
+                </button>
+                <input
+                  id="lock-month"
+                  aria-label="Mes"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="2"
+                  value="01"
+                  autocomplete="off"
+                />
+                <button type="button" data-step="-1" aria-label="Disminuir mes">
+                  ⌄
+                </button>
+                <span>MES</span>
+              </div>
+              <div class="dial" data-part="year" data-min="0" data-max="99">
+                <button type="button" data-step="1" aria-label="Aumentar año">
+                  ⌃
+                </button>
+                <input
+                  id="lock-year"
+                  aria-label="Año"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="2"
+                  value="25"
+                  autocomplete="off"
+                />
+                <button type="button" data-step="-1" aria-label="Disminuir año">
+                  ⌄
+                </button>
+                <span>AÑO</span>
+              </div>
+            </div>
+            <span class="lock-orbit orbit-one" aria-hidden="true">✧</span
+            ><span class="lock-orbit orbit-two" aria-hidden="true">✧</span>
+          </div>
+          <p class="gate-hint">Pista: el día en que comenzó lo nuestro.</p>
+          <button class="button button-gold" id="unlock-button" type="submit">
+            Abrir nuestro rincón <svg class="icon"><use href="#i-arrow" /></svg>
+          </button>
+          <p id="gate-message" role="status" class="gate-message">
+            Elige la fecha y pulsa para abrir.
+          </p>
+        </form>
+      </div>
+      <div class="gate-bottom">
+        <span>HECHO DE RECUERDOS, GUARDADO CON AMOR</span
+        ><svg class="icon"><use href="#i-heart" /></svg
+        ><span>SOLO NOSOTROS</span>
+      </div>
+    </section>
 
-    <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-hidden="true">
-        <article class="memory-dialog">
-            <button id="close-btn" class="modal-close" type="button" aria-label="Cerrar recuerdos">×</button>
-            <div class="memory-copy">
-                <p class="section-kicker">Nuestros momentos</p>
-                <h2 id="modal-title">Te amo en cada recuerdo</h2>
-                <p>Lo más bonito nunca fue el lugar ni la fecha, sino compartirlo contigo.</p>
-                <span class="memory-signature">Siempre tú, siempre nosotros.</span>
+    <div id="app" hidden inert>
+      <header class="site-header">
+        <a href="#inicio" class="brand" aria-label="Nosotros, ir al inicio"
+          ><span class="wordmark">n.</span
+          ><span
+            >nosotros<span class="brand-sub">NUESTRO ARCHIVO VIVO</span></span
+          ></a
+        >
+        <nav aria-label="Navegación principal">
+          <a href="#inicio" class="nav-link active">El rincón</a>
+          <a href="#universo" class="nav-link">Universo</a>
+          <a href="#albumes" class="nav-link">Álbumes</a>
+          <a href="#cartas" class="nav-link">Cartas</a>
+        </nav>
+        <button id="open-admin" class="admin-trigger text-button" aria-label="Administrar recuerdos">Cuidar lo nuestro <span>↗</span></button>
+        <button
+          class="icon-button"
+          id="lock-again"
+          aria-label="Cerrar nuestro rincón"
+          title="Cerrar el candado"
+        >
+          <svg class="icon"><use href="#i-lock" /></svg>
+        </button>
+      </header>
+
+      <main>
+        <section
+          id="inicio"
+          class="hero section-wrap"
+          aria-labelledby="hero-title"
+        >
+          <div class="hero-copy">
+            <p class="eyebrow">
+              <span class="little-line"></span> EL DÍA EN QUE TODO CAMBIÓ
+            </p>
+            <h1 id="hero-title" tabindex="-1">
+              Hay lugares.<br />Y luego,<br /><em>estás tú.</em>
+            </h1>
+            <p class="hero-description">
+              Este es el nuestro. Un rincón para guardar lo que vivimos y volver
+              a sentirlo, todas las veces que queramos.
+            </p>
+            <div class="hero-actions">
+              <a href="#universo" class="button button-wine"
+                >Recorrer nuestra historia
+                <svg class="icon"><use href="#i-arrow" /></svg></a
+              ><button class="text-button" id="random-memory">
+                <svg class="icon"><use href="#i-spark" /></svg> Sorpréndeme
+              </button>
             </div>
-            <div class="photo-collage">
-                <figure class="photo-card photo-card-one">
-                    <img src="amorcito 1.jpg" alt="Un recuerdo especial de nosotros">
-                </figure>
-                <figure class="photo-card photo-card-two">
-                    <img src="amorcito2.JPG" alt="Otro recuerdo especial de nosotros">
-                </figure>
+            <div class="hero-footnote">
+              <span class="tiny-heart">♡</span
+              ><span>Algunos instantes merecen quedarse.</span>
             </div>
-        </article>
+          </div>
+          <div
+            class="memory-desk"
+            id="memory-desk"
+            aria-label="Nuestra mesa de recuerdos. Abre las fotos con un clic o muévelas con el ratón."
+          >
+            <svg class="memory-thread" viewBox="0 0 650 640" aria-hidden="true">
+              <path
+                d="M61 466C-45 299 528 53 543 207S182 598 151 454 543 294 601 480"
+              />
+              <circle cx="61" cy="466" r="4" />
+              <circle cx="601" cy="480" r="4" />
+            </svg>
+            <span class="desk-annotation annotation-top"
+              >todo esto, contigo <span>↘</span></span
+            >
+            <button
+              class="polaroid photo-main"
+              data-memory="lights"
+              aria-label="Abrir el recuerdo: Nuestra noche de colores"
+            >
+              <span class="photo-tape" aria-hidden="true"></span
+              ><img
+                alt="Nosotros frente a las fuentes de colores"
+                draggable="false"
+                fetchpriority="high"
+              /><span class="polaroid-caption"
+                >mi lugar favorito siempre eres tú</span
+              ><span class="photo-index">01 / NOSOTROS</span>
+            </button>
+            <button
+              class="polaroid photo-back"
+              data-memory="hearts"
+              aria-label="Abrir el recuerdo: Entre luces y corazones"
+            >
+              <img
+                alt="Juntos bajo los arcos de corazones iluminados"
+                draggable="false"
+              /><span class="polaroid-caption">una noche para guardar ♡</span>
+            </button>
+            <button
+              class="polaroid photo-small"
+              data-memory="graduation"
+              aria-label="Abrir el recuerdo: Verte cumplir tus sueños"
+            >
+              <img
+                alt="Nuestro recuerdo juntos en la graduación"
+                draggable="false"
+              /><span class="polaroid-caption">celebrarte, siempre.</span>
+            </button>
+            <div class="postage-stamp" aria-hidden="true">
+              <svg class="icon"><use href="#i-heart" /></svg
+              ><span>PARA<br />SIEMPRE</span>
+            </div>
+            <span class="desk-annotation annotation-bottom"
+              >toca una foto para volver ahí</span
+            >
+            <button class="desk-reset text-button" id="reset-desk" hidden>
+              Reordenar fotos ↺
+            </button>
+          </div>
+          <a class="scroll-cue" href="#tiempo"
+            ><span>QUÉ BONITO COINCIDIR</span><span>↓</span></a
+          >
+        </section>
+
+        <section
+          id="tiempo"
+          class="time-section section-wrap reveal"
+          aria-label="Nuestro tiempo juntos"
+        >
+          <div class="time-intro">
+            <span class="eyebrow">EL TIEMPO TIENE OTRO SENTIDO</span>
+            <h2>Desde que somos <em>nosotros.</em></h2>
+          </div>
+          <div
+            class="time-counter"
+            role="timer"
+            aria-label="Nuestro tiempo juntos"
+          >
+            <div><strong id="days">0</strong><span>DÍAS</span></div>
+            <span class="time-colon">:</span>
+            <div><strong id="hours">00</strong><span>HORAS</span></div>
+            <span class="time-colon">:</span>
+            <div><strong id="minutes">00</strong><span>MINUTOS</span></div>
+            <span class="time-colon">:</span>
+            <div><strong id="seconds">00</strong><span>SEGUNDOS</span></div>
+          </div>
+          <p class="time-note handwritten">y aún nos queda tanto…</p>
+        </section>
+
+        <section id="universo" class="universe-section" aria-labelledby="universe-title">
+          <div class="universe-stars" aria-hidden="true"></div>
+          <div class="universe-heading section-wrap">
+            <p class="eyebrow light">NUESTRO PEQUEÑO SISTEMA SOLAR</p>
+            <h2 id="universe-title">Todo lo bonito<br /><em>orbita alrededor de ti.</em></h2>
+            <p>Desliza entre los instantes. Hay un mundo dentro de cada uno.</p>
+          </div>
+          <div class="orbit-scene" id="orbit-scene" aria-label="Galería tridimensional de recuerdos">
+            <div class="orbit-ring ring-outer" aria-hidden="true"></div>
+            <div class="orbit-ring ring-inner" aria-hidden="true"></div>
+            <span class="orbit-coordinate" aria-hidden="true">TÚ + YO<br />UN MISMO UNIVERSO</span>
+            <div class="orbit-cards" id="orbit-cards"></div>
+          </div>
+          <div class="orbit-controls">
+            <button id="orbit-prev" class="icon-button" aria-label="Recuerdo anterior">←</button>
+            <div aria-live="polite"><span id="orbit-counter" class="eyebrow light"></span><p id="orbit-caption"></p></div>
+            <button id="orbit-next" class="icon-button" aria-label="Recuerdo siguiente">→</button>
+          </div>
+          <p class="universe-footnote handwritten">en cualquier universo, contigo.</p>
+        </section>
+
+        <section
+          id="albumes"
+          class="albums-section section-wrap"
+          aria-labelledby="albums-title"
+        >
+          <div class="section-heading reveal">
+            <div>
+              <p class="eyebrow">01 / LO QUE YA VIVIMOS</p>
+              <h2 id="albums-title">
+                Pequeños instantes.<br /><em>Todo un mundo.</em>
+              </h2>
+            </div>
+            <div class="section-aside">
+              <p>Hay fotos que no solo se miran.<br />Se vuelven a vivir.</p>
+              <button class="text-button" data-add="memory">
+                <svg class="icon"><use href="#i-plus" /></svg> Guardar un
+                recuerdo
+              </button>
+            </div>
+          </div>
+          <div id="album-grid" class="album-grid"></div>
+          <div class="collection-toolbar reveal">
+            <span id="collection-count">Nuestra colección</span>
+            <div
+              class="filter-tabs"
+              role="group"
+              aria-label="Filtrar fotografías"
+            >
+              <button class="active" data-filter="all" aria-pressed="true">
+                Todos</button
+              ><button data-filter="favorites" aria-pressed="false">
+                <svg class="icon"><use href="#i-heart" /></svg> Favoritos
+              </button>
+            </div>
+          </div>
+          <div id="month-timeline" class="month-timeline" role="group" aria-label="Recorrer recuerdos por mes"></div>
+          <div class="photo-grid" id="photo-grid"></div>
+          <button id="more-photos" class="text-button more-photos" hidden>Desplegar más recuerdos ↓</button>
+          <p id="empty-favorites" class="empty-message" hidden>
+            Todavía no hay favoritos. Abre una foto y toca su corazón para
+            guardarla aquí.
+          </p>
+        </section>
+
+        <section
+          id="cartas"
+          class="letters-section"
+          aria-labelledby="letters-title"
+        >
+          <div class="letters-inner section-wrap">
+            <div class="letters-heading reveal">
+              <p class="eyebrow light">02 / LO QUE A VECES NO DIGO</p>
+              <h2 id="letters-title">
+                Si las palabras<br />pudieran <em>abrazarte.</em>
+              </h2>
+              <p>
+                Hay un poquito de mí en cada sobre.<br />Abre el que necesites
+                hoy.
+              </p>
+              <button class="text-button light-button" data-add="letter">
+                <svg class="icon"><use href="#i-plus" /></svg> Escribir una
+                carta
+              </button>
+            </div>
+            <div class="envelopes" id="letter-grid"></div>
+          </div>
+          <span class="letters-watermark" aria-hidden="true">con amor.</span>
+        </section>
+
+        <section
+          class="next-memory section-wrap reveal"
+          aria-labelledby="next-title"
+        >
+          <div class="next-orbit" aria-hidden="true">
+            <svg class="icon"><use href="#i-spark" /></svg>
+          </div>
+          <p class="eyebrow">ESTA HISTORIA SIGUE ABIERTA</p>
+          <h2 id="next-title">
+            Nuestro mejor recuerdo<br /><em>todavía no tiene foto.</em>
+          </h2>
+          <p>Pero cuando llegue, tendrá un lugar aquí.</p>
+          <button class="button button-wine" data-add="memory">
+            <svg class="icon"><use href="#i-plus" /></svg> Añadir un nuevo
+            momento
+          </button>
+        </section>
+      </main>
+
+      <footer class="site-footer section-wrap">
+        <div>
+          <a class="footer-wordmark" href="#inicio">nosotros.</a>
+          <p>Un archivo de lo que somos. Y de lo que viene.</p>
+        </div>
+        <div class="archive-tools">
+          <span id="storage-status"
+            >Recuerdos protegidos. Guardados en nuestro servidor.</span
+          >
+          <div>
+            <button data-admin-only id="export-archive" class="text-button">
+              <svg class="icon"><use href="#i-download" /></svg> Crear respaldo</button
+            ><button data-admin-only id="import-archive" class="text-button">
+              Importar respaldo
+            </button>
+          </div>
+          <input
+            id="import-file"
+            type="file"
+            accept=".json,application/json"
+            hidden
+          />
+        </div>
+        <span class="footer-date">SIEMPRE NOSOTROS — ∞</span>
+      </footer>
     </div>
 
-    <script src="script.js?v=9"></script>
-</body>
+    <dialog
+      id="album-dialog"
+      class="album-dialog"
+      aria-labelledby="album-dialog-title"
+    >
+      <button
+        class="dialog-close icon-button"
+        data-close
+        aria-label="Cerrar álbum"
+      >
+        <svg class="icon"><use href="#i-close" /></svg>
+      </button>
+      <div class="album-dialog-heading">
+        <p class="eyebrow">UNA PARTE DE NOSOTROS</p>
+        <h2 id="album-dialog-title"></h2>
+        <p id="album-dialog-description"></p>
+      </div>
+      <div id="album-dialog-photos" class="photo-grid"></div>
+      <button id="add-to-album" class="text-button">
+        <svg class="icon"><use href="#i-plus" /></svg> Añadir a este álbum
+      </button>
+    </dialog>
+    <dialog
+      id="memory-dialog"
+      class="memory-dialog"
+      aria-labelledby="memory-title"
+    >
+      <button
+        class="dialog-close icon-button"
+        data-close
+        aria-label="Cerrar recuerdo"
+      >
+        <svg class="icon"><use href="#i-close" /></svg>
+      </button>
+      <div class="viewer-stage">
+        <img id="viewer-photo" alt="" />
+        <video id="viewer-video" controls playsinline preload="metadata" hidden></video>
+        <div class="viewer-navigation">
+          <button
+            id="prev-memory"
+            class="icon-button"
+            aria-label="Foto anterior"
+          >
+            ←</button
+          ><span id="viewer-count"></span
+          ><button
+            id="next-memory"
+            class="icon-button"
+            aria-label="Foto siguiente"
+          >
+            →
+          </button>
+        </div>
+      </div>
+      <div class="viewer-copy">
+        <p id="memory-album" class="eyebrow"></p>
+        <h2 id="memory-title"></h2>
+        <p id="memory-date" class="memory-date"></p>
+        <p id="memory-note"></p>
+        <div class="viewer-actions">
+          <button id="favorite-memory" class="text-button" aria-pressed="false">
+            <svg class="icon"><use href="#i-heart" /></svg
+            ><span>Guardar favorito</span></button
+          ><button data-admin-only id="edit-memory" class="text-button">Editar recuerdo</button>
+        </div>
+        <span class="handwritten">aquí volvería mil veces.</span>
+      </div>
+    </dialog>
+    <dialog
+      id="letter-dialog"
+      class="letter-dialog"
+      aria-labelledby="letter-title"
+    >
+      <button
+        class="dialog-close icon-button"
+        data-close
+        aria-label="Cerrar carta"
+      >
+        <svg class="icon"><use href="#i-close" /></svg>
+      </button>
+      <div class="letter-paper">
+        <svg class="icon letter-heart"><use href="#i-heart" /></svg>
+        <p class="eyebrow">PARA TI, CON TODO MI AMOR</p>
+        <h2 id="letter-title"></h2>
+        <div id="letter-body"></div>
+        <p class="letter-signature handwritten">
+          Siempre tú, siempre nosotros.
+        </p>
+        <button data-admin-only id="edit-letter" class="text-button">Editar esta carta</button>
+      </div>
+    </dialog>
+    <dialog
+      id="editor-dialog"
+      class="editor-dialog"
+      aria-labelledby="editor-title"
+    >
+      <button
+        class="dialog-close icon-button"
+        data-close
+        aria-label="Cerrar editor"
+      >
+        <svg class="icon"><use href="#i-close" /></svg>
+      </button>
+      <form id="editor-form">
+        <p class="eyebrow">UN ESPACIO PARA LO NUESTRO</p>
+        <h2 id="editor-title">Guardemos este instante.</h2>
+        <div id="memory-fields">
+          <label class="upload-zone" for="photo-files"
+            ><svg class="icon"><use href="#i-photo" /></svg
+            ><strong>Elige tus fotografías</strong
+            ><span>JPG, PNG o WebP · hasta 10 fotos</span
+            ><input
+              id="photo-files"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+          /></label>
+          <div id="upload-preview" class="upload-preview"></div>
+          <div class="field-row">
+            <label
+              >Álbum<input
+                id="entry-album"
+                type="text"
+                list="album-options"
+                maxlength="60"
+                placeholder="Por ejemplo: Nuestras escapadas" /><datalist
+                id="album-options"
+              ></datalist></label
+            ><label
+              >Fecha <span class="optional">(opcional)</span
+              ><input id="entry-date" type="date"
+            /></label>
+          </div>
+          <label>Mes del recuerdo <span class="optional">(puedes organizarlo sin inventar un día)</span><input id="entry-month" type="month" /></label>
+        </div>
+        <label
+          >Título<input
+            id="entry-title"
+            type="text"
+            maxlength="100"
+            required
+            placeholder="¿Cómo llamarías a este recuerdo?"
+        /></label>
+        <label id="note-label"
+          >Lo que quieres recordar<textarea
+            id="entry-note"
+            rows="4"
+            maxlength="6000"
+            placeholder="Ese pequeño detalle que no aparece en la foto…"
+          ></textarea>
+        </label>
+        <p class="save-note">
+          Se guarda en el servidor de este rincón. Las fotos solo se entregan después de abrir el candado.
+        </p>
+        <p id="editor-error" role="alert"></p>
+        <button class="button button-wine" id="save-entry" type="submit">
+          Guardar con amor <svg class="icon"><use href="#i-heart" /></svg>
+        </button>
+      </form>
+    </dialog>
+    <dialog id="admin-login-dialog" class="editor-dialog admin-login" aria-labelledby="admin-login-title">
+      <button class="dialog-close icon-button" data-close aria-label="Cerrar acceso de administración">×</button>
+      <form id="admin-login-form">
+        <span class="admin-seal">n.</span>
+        <p class="eyebrow">LA OTRA LLAVE DE ESTE RINCÓN</p>
+        <h2 id="admin-login-title">Cuidar lo <em>nuestro.</em></h2>
+        <p>Para ordenar los recuerdos, añadir fotos y escribir nuevas cartas.</p>
+        <label>Clave de administración<input id="admin-password" type="password" autocomplete="current-password" required maxlength="128" /></label>
+        <p id="admin-login-error" class="form-error" role="alert"></p>
+        <button class="button button-wine" type="submit">Entrar a nuestro taller ↗</button>
+        <p class="save-note">Esta clave es diferente de la fecha del candado.</p>
+      </form>
+    </dialog>
+
+    <dialog id="admin-dialog" class="admin-dialog" aria-labelledby="admin-title">
+      <button class="dialog-close icon-button" data-close aria-label="Cerrar administración">×</button>
+      <header class="admin-heading">
+        <div><p class="eyebrow">EL TALLER DE NUESTRA HISTORIA</p><h2 id="admin-title">Cuidar lo <em>nuestro.</em></h2>
+        <p>Ordena lo vivido. Haz espacio para todo lo que viene.</p></div>
+        <div class="admin-actions"><button class="button button-wine" data-add="memory">+ Añadir fotografías</button><button class="text-button" data-add="letter">Escribir una carta ↗</button></div>
+      </header>
+      <div id="admin-stats" class="admin-stats"></div>
+      <div class="admin-filters">
+        <label>Buscar un recuerdo<input id="admin-search" type="search" placeholder="Título, álbum o archivo original…" /></label>
+        <label>Mes<select id="admin-month"><option value="all">Todos los meses</option></select></label>
+        <label>Álbum<select id="admin-album"><option value="all">Todos los álbumes</option></select></label>
+      </div>
+      <div class="admin-bulk">
+        <div class="selection-tools"><strong id="selected-count" role="status">0 seleccionados</strong><button id="select-visible" class="text-button">Seleccionar visibles</button><button id="clear-selection" class="text-button">Limpiar selección</button></div>
+        <div class="bulk-fields"><label>Mover al mes<input id="bulk-month" type="month" /></label><label>Álbum<input id="bulk-album" type="text" maxlength="60" placeholder="Conservar álbum actual" list="album-options" /></label><button id="apply-bulk" class="button button-wine">Aplicar a selección</button></div>
+        <div class="selection-tools"><button id="feature-selection" class="text-button">✧ Destacar en el universo</button><button id="unfeature-selection" class="text-button">Quitar destacados</button><button id="hide-selection" class="text-button">Ocultar selección</button><button id="show-selection" class="text-button">Volver a mostrar</button><button id="undate-selection" class="text-button">Dejar sin mes</button></div>
+        <p class="save-note">Ocultar no elimina nada. Solo tú lo verás en este taller. Las fechas iniciales vienen de las fotos; puedes corregir su mes aquí.</p>
+      </div>
+      <p id="admin-error" class="form-error" role="alert"></p>
+      <div id="admin-grid" class="admin-grid"></div>
+      <p id="admin-empty" class="empty-message" hidden>No hay recuerdos con esos filtros.</p>
+      <footer class="admin-footer">
+        <button id="admin-return" class="text-button">Volver a los recuerdos ↗</button>
+        <button id="recover-local" class="text-button">Recuperar recuerdos de la versión anterior</button>
+        <button id="refresh-archive" class="text-button">Actualizar archivo ↻</button>
+        <button id="admin-logout" class="text-button">Salir de administración</button>
+      </footer>
+      <details class="admin-security"><summary>Cambiar la clave de administración</summary>
+        <form id="password-form"><label>Clave actual<input id="current-password" type="password" autocomplete="current-password" required /></label><label>Nueva clave<input id="new-password" type="password" autocomplete="new-password" minlength="14" maxlength="128" required /></label><label>Repetir nueva clave<input id="confirm-password" type="password" autocomplete="new-password" minlength="14" maxlength="128" required /></label><button class="button button-wine" type="submit">Cambiar clave</button><p id="password-message" role="status"></p></form>
+      </details>
+    </dialog>
+
+    <div id="toast" class="toast" role="status"></div>
+    <noscript
+      ><div class="noscript">
+        Activa JavaScript para abrir el candado y explorar los recuerdos.
+      </div></noscript
+    >
+  </body>
 </html>

@@ -1,0 +1,19 @@
+{
+  "name": "el-archivo-de-nosotros",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Un archivo íntimo de fotografías, álbumes y cartas.",
+  "scripts": {
+    "start": "node server.mjs",
+    "setup": "node scripts/setup.mjs",
+    "import:photos": "python scripts/import-media.py",
+    "import:video": "python scripts/import-video.py",
+    "test": "node tests/security.mjs && node tests/browser-secure.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  },
+  "dependencies": {
+    "sharp": "^0.35.5"
+  }
+}

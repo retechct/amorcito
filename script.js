@@ -1,649 +1,1140 @@
-// CONFIGURACIÓN PRINCIPAL
-const startDate = new Date(2026, 1, 14, 0, 0, 0);
-const texts = [
-    'Eres mi lugar seguro y mi casualidad favorita...',
-    'Contigo cada segundo es mágico. Te amo infinitamente.'
-];
+/* Nosotros — un archivo íntimo. Autenticación y persistencia en el servidor. */
+(() => {
+  "use strict";
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [
+    ...root.querySelectorAll(selector),
+  ];
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let START = null;
+  let auth = { authenticated: false, role: null, csrf: null };
+  let cooldownUntil = 0, checking = false, adminCooldownUntil = 0;
+  let monthFilter = "all", photoLimit = 24, orbitIndex = 0;
+  const selected = new Set();
+  const albumDescriptions = {
+    "Noches de luz":
+      "Dos personas, miles de luces y un recuerdo al que siempre volver.",
+    "Lo que celebramos":
+      "Los logros se vuelven más bonitos cuando podemos compartirlos.",
+  };
+  let archive = { memories: [], letters: [], favorites: [], revision: 0 };
+  let unlocked = false, unlocking = false;
+  let filter = "all",
+    viewerIds = [],
+    viewerIndex = 0,
+    activeAlbum = "",
+    activeLetter = "";
+  let editorMode = "memory",
+    editingId = null,
+    selectedFiles = [],
+    previewURLs = [],
+    toastTimer;
+  let observer;
+  const icon = (name) =>
+    '<svg class="icon" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+  const pad = (n) => String(n).padStart(2, "0");
+  const uid = () =>
+    crypto.randomUUID
+      ? crypto.randomUUID()
+      : "entry-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+  function node(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+  function toast(message) {
+    clearTimeout(toastTimer);
+    $("#toast").textContent = message;
+    $("#toast").classList.add("visible");
+    toastTimer = setTimeout(
+      () => $("#toast").classList.remove("visible"),
+      4200,
+    );
+  }
+  function prettyDate(value) {
+    if (!value) return "";
+    return new Intl.DateTimeFormat("es-PE", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "America/Lima",
+    }).format(new Date(value + "T12:00:00-05:00"));
+  }
 
-// ÁRBOL DE HOJAS EN FORMA DE CORAZÓN
-const canvas = document.getElementById('magicTree');
-const ctx = canvas.getContext('2d');
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const treePalette = ['#68182b', '#7b2034', '#8f3044', '#b08d57', '#c8aa6e', '#d9c9aa', '#f7f4ee'];
-
-let width = 0;
-let height = 0;
-let crownX = 0;
-let crownY = 0;
-let crownScale = 0;
-let staticLeaves = [];
-let fallingLeaves = [];
-let lastWidth = 0;
-let lastHeight = 0;
-let resizeTimer;
-let animationFrame = 0;
-
-function seededRandom(seed) {
-    let value = seed % 2147483647;
-    return () => {
-        value = value * 16807 % 2147483647;
-        return (value - 1) / 2147483646;
-    };
-}
-
-function isInsideHeart(normalizedX, normalizedY) {
-    const x = normalizedX;
-    const y = -normalizedY;
-    const a = x * x + y * y - 1;
-    return (a * a * a - x * x * y * y * y) <= 0;
-}
-
-function buildOrderedCrown() {
-    const random = seededRandom(143);
-    const leaves = [];
-    const columns = width < 500 ? 34 : 42;
-    const rows = width < 500 ? 30 : 37;
-
-    for (let row = 0; row < rows; row++) {
-        for (let column = 0; column < columns; column++) {
-            const nx = -1.25 + ((column + 0.5) / columns) * 2.5;
-            const ny = -1.16 + ((row + 0.5) / rows) * 2.42;
-            if (!isInsideHeart(nx, ny)) continue;
-
-            const jitterX = (random() - 0.5) * (2.1 / columns);
-            const jitterY = (random() - 0.5) * (2 / rows);
-            const depth = 0.72 + random() * 0.28;
-            leaves.push({
-                x: crownX + (nx + jitterX) * crownScale,
-                y: crownY + (ny + jitterY) * crownScale,
-                size: (2.25 + random() * 1.9) * depth,
-                rotation: random() * Math.PI,
-                color: treePalette[Math.floor(random() * treePalette.length)],
-                delay: random() * 120,
-                sway: random() * Math.PI * 2,
-                depth
-            });
-        }
+  async function api(path, method = "GET", data) {
+    let response;
+    try {
+      response = await fetch(path, {
+        method, credentials: "same-origin",
+        headers: { ...(data === undefined ? {} : {"Content-Type":"application/json"}), ...(auth.csrf ? {"X-CSRF-Token":auth.csrf} : {}) },
+        ...(data === undefined ? {} : {body:JSON.stringify(data)}),
+      });
+    } catch { throw new Error("No se pudo conectar. Comprueba que el servidor esté encendido."); }
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(result.error || "No se pudo completar la operación.");
+      error.status = response.status; error.retryAfter = result.retryAfter || 0;
+      if (response.status === 401 && !path.endsWith("/login") && path !== "/api/admin/password") {
+        location.reload();
+      }
+      throw error;
     }
-
-    staticLeaves = leaves.sort((a, b) => a.depth - b.depth);
-}
-
-function resizeCanvas() {
-    const rect = canvas.parentElement.getBoundingClientRect();
-    const nextWidth = Math.max(1, Math.round(rect.width));
-    const nextHeight = Math.max(1, Math.round(rect.height));
-    if (lastWidth === nextWidth && lastHeight === nextHeight) return;
-
-    lastWidth = nextWidth;
-    lastHeight = nextHeight;
-    width = nextWidth;
-    height = nextHeight;
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    crownScale = Math.min(width / 2.85, height / 3.35);
-    crownX = width / 2;
-    crownY = crownScale * 1.22 + Math.max(22, height * 0.045);
-    fallingLeaves = [];
-    buildOrderedCrown();
-}
-
-function drawLeaf(x, y, size, rotation, color, opacity = 1) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rotation);
-    ctx.globalAlpha = opacity;
-
-    ctx.beginPath();
-    ctx.moveTo(0, -size * 1.35);
-    ctx.bezierCurveTo(size * 1.05, -size * 0.7, size * 1.05, size * 0.75, 0, size * 1.35);
-    ctx.bezierCurveTo(-size * 1.05, size * 0.75, -size * 1.05, -size * 0.7, 0, -size * 1.35);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(0, -size);
-    ctx.lineTo(0, size);
-    ctx.strokeStyle = 'rgba(255,255,255,.3)';
-    ctx.lineWidth = Math.max(.45, size * .11);
-    ctx.stroke();
-    ctx.restore();
-}
-
-function drawBranch(startX, startY, controlX, controlY, endX, endY, lineWidth, opacity = 1) {
-    ctx.save();
-    ctx.globalAlpha = opacity;
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.quadraticCurveTo(controlX, controlY, endX, endY);
-    ctx.strokeStyle = '#4e4140';
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-    ctx.restore();
-}
-
-function drawTreeStructure() {
-    const baseY = height * 0.93;
-    const splitY = crownY + crownScale * 0.58;
-    const trunkTop = crownY + crownScale * 0.08;
-
-    ctx.save();
-    const trunkGradient = ctx.createLinearGradient(crownX, baseY, crownX, trunkTop);
-    trunkGradient.addColorStop(0, '#403738');
-    trunkGradient.addColorStop(.58, '#564646');
-    trunkGradient.addColorStop(1, '#6b5150');
-    ctx.fillStyle = trunkGradient;
-    ctx.beginPath();
-    ctx.moveTo(crownX - crownScale * .13, baseY);
-    ctx.bezierCurveTo(crownX - crownScale * .1, splitY, crownX - crownScale * .035, splitY, crownX - crownScale * .025, trunkTop);
-    ctx.bezierCurveTo(crownX + crownScale * .035, splitY, crownX + crownScale * .11, splitY, crownX + crownScale * .13, baseY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    const branches = [
-        [-.02, .52, -.66, .18, -1.02, -.22, 7],
-        [.01, .48, .65, .12, 1.02, -.2, 7],
-        [-.01, .4, -.38, -.18, -.54, -.7, 5],
-        [.02, .38, .38, -.18, .56, -.68, 5],
-        [0, .35, -.08, -.38, -.14, -.96, 4],
-        [0, .34, .13, -.35, .2, -.9, 4],
-        [-.35, .05, -.7, -.36, -.94, -.56, 3],
-        [.35, .05, .72, -.34, .94, -.54, 3]
-    ];
-
-    for (const branch of branches) {
-        drawBranch(
-            crownX + branch[0] * crownScale,
-            crownY + branch[1] * crownScale,
-            crownX + branch[2] * crownScale,
-            crownY + branch[3] * crownScale,
-            crownX + branch[4] * crownScale,
-            crownY + branch[5] * crownScale,
-            Math.max(1.5, branch[6] * crownScale / 190),
-            .84
-        );
+    return result;
+  }
+  async function saveArchive(next) {
+    if (auth.role !== "admin") throw new Error("Abre el taller con tu clave de administración.");
+    try {
+      archive = await api("/api/archive", "PUT", {...next, revision:archive.revision});
+    } catch (error) {
+      if (error.status === 409) {
+        archive = await api("/api/archive");
+        renderAll();
+        error.message = "Otra sesión actualizó el archivo. Ya cargamos sus cambios; revisa y vuelve a guardar.";
+      }
+      throw error;
     }
+  }
+  function validateArchive(data) {
+    if (!data || !Array.isArray(data.memories) || !Array.isArray(data.letters) || data.memories.length > 2000 || data.letters.length > 200)
+      throw new Error("El respaldo no tiene un formato válido.");
+    return {memories:data.memories,letters:data.letters,favorites:Array.isArray(data.favorites)?data.favorites:[]};
+  }
+  const visibleMemories = () => archive.memories.filter(m => !m.hidden);
+  const monthName = month => month ? new Intl.DateTimeFormat("es-PE",{month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(month+"-15T12:00:00Z")) : "Sin fecha";
+  function applyRole() {
+    $$("[data-admin-only]").forEach(el => {el.hidden = auth.role !== "admin";});
+    $("#open-admin").classList.toggle("is-admin", auth.role === "admin");
+    $("#storage-status").textContent = auth.role === "admin" ? "Modo administrador · cambios guardados en el servidor." : "Un rincón protegido. Nuestros recuerdos, a salvo del acceso directo.";
+  }
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(crownX, baseY + 3, crownScale * .32, 8, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(38,8,15,.12)';
-    ctx.filter = 'blur(5px)';
-    ctx.fill();
-    ctx.restore();
-}
+  // Dial edits are local. Only an explicit submit consumes an authentication attempt.
+  const dateFields = $$(".dial input");
+  function normalizeDial(input) {
+    const parent = input.closest(".dial");
+    input.value = pad(Math.max(Number(parent.dataset.min),Math.min(Number(parent.dataset.max),Number(input.value.replace(/\D/g,"")))));
+  }
+  function updateCooldown() {
+    const wait = Math.max(0,Math.ceil((cooldownUntil-Date.now())/1000));
+    $("#unlock-button").disabled = checking || wait > 0;
+    if (wait) $("#gate-message").textContent = "El candado está descansando. Podrás probar en "+wait+" s.";
+    else if (cooldownUntil) { cooldownUntil = 0; $("#gate-message").textContent = "Ya puedes volver a intentarlo."; }
+    const adminWait = Math.max(0,Math.ceil((adminCooldownUntil-Date.now())/1000));
+    if(adminCooldownUntil)$("#admin-login-form button[type=submit]").disabled = adminWait > 0;
+    if (adminWait) $("#admin-login-error").textContent = "Espera "+adminWait+" s antes de volver a probar.";
+  }
+  setInterval(updateCooldown,1000);
+  async function verifyDate() {
+    if (checking || unlocking || unlocked || cooldownUntil > Date.now()) return;
+    const candidate = dateFields.map(input => pad(input.value)).join("");
+    if (!/^\d{6}$/.test(candidate)) return;
+    checking = true; updateCooldown();
+    $("#gate-message").textContent = "Escuchando lo que dice el corazón…";
+    try {
+      auth = await api("/api/login","POST",{password:candidate});
+      await openArchive();
+    } catch(error) {
+      if(error.retryAfter) cooldownUntil = Date.now()+error.retryAfter*1000;
+      $("#secret-form").classList.remove("has-error");
+      void $("#secret-form").offsetWidth;
+      $("#secret-form").classList.add("has-error");
+      $("#gate-message").textContent = error.message;
+    } finally { checking = false; updateCooldown(); }
+  }
+  $("#secret-form").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-step]");
+    if (!button || unlocking) return;
+    const dial = button.closest(".dial"),
+      input = $("input", dial),
+      minimum = Number(dial.dataset.min),
+      maximum = Number(dial.dataset.max);
+    let next = Number(input.value) + Number(button.dataset.step);
+    if (next > maximum) next = minimum;
+    if (next < minimum) next = maximum;
+    input.value = pad(next);
+    dial.classList.remove("is-rolling");
+    void dial.offsetWidth;
+    dial.classList.add("is-rolling");
+    setTimeout(() => dial.classList.remove("is-rolling"), 220);
+    $("#secret-form").classList.remove("has-error");
+    $("#gate-message").textContent = "Gira las flechas o escribe la fecha.";
+  });
+  dateFields.forEach((input) => {
+    input.addEventListener("focus", () => input.select());
+    input.addEventListener("input", () => {
+      input.value = input.value.replace(/\D/g, "").slice(0, 2);
+      $("#secret-form").classList.remove("has-error");
 
-function drawCrown() {
-    const time = animationFrame * .012;
-    for (const leaf of staticLeaves) {
-        const entrance = reduceMotion ? 1 : Math.min(1, Math.max(0, (animationFrame - leaf.delay) / 28));
-        if (entrance <= 0) continue;
-        const sway = reduceMotion ? 0 : Math.sin(time + leaf.sway) * 1.25;
-        drawLeaf(
-            leaf.x + sway,
-            leaf.y,
-            leaf.size * entrance,
-            leaf.rotation + sway * .025,
-            leaf.color,
-            .88 + leaf.depth * .12
-        );
-    }
-}
-
-function spawnFallingLeaf() {
-    if (reduceMotion || animationFrame < 150 || animationFrame % 13 !== 0 || fallingLeaves.length >= 32) return;
-    const random = Math.random;
-    const source = staticLeaves[Math.floor(random() * staticLeaves.length)];
-    if (!source) return;
-
-    fallingLeaves.push({
-        x: source.x,
-        y: source.y,
-        size: source.size * (.85 + random() * .35),
-        color: source.color,
-        rotation: source.rotation,
-        speed: .48 + random() * .72,
-        drift: (random() - .5) * .55,
-        phase: random() * Math.PI * 2,
-        spin: (random() - .5) * .025,
-        opacity: .9
     });
-}
-
-function drawFallingLeaves() {
-    for (let index = fallingLeaves.length - 1; index >= 0; index--) {
-        const leaf = fallingLeaves[index];
-        leaf.phase += .035;
-        leaf.y += leaf.speed;
-        leaf.x += leaf.drift + Math.sin(leaf.phase) * .34;
-        leaf.rotation += leaf.spin;
-        if (leaf.y > height * .78) leaf.opacity -= .006;
-
-        drawLeaf(leaf.x, leaf.y, leaf.size, leaf.rotation, leaf.color, Math.max(0, leaf.opacity));
-        if (leaf.y > height + 30 || leaf.opacity <= 0) fallingLeaves.splice(index, 1);
-    }
-}
-
-function renderLoop() {
-    animationFrame++;
-    ctx.clearRect(0, 0, width, height);
-    drawTreeStructure();
-    drawCrown();
-    spawnFallingLeaf();
-    drawFallingLeaves();
-    requestAnimationFrame(renderLoop);
-}
-
-function scheduleResize() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(resizeCanvas, 120);
-}
-
-window.addEventListener('resize', scheduleResize, { passive: true });
-new ResizeObserver(scheduleResize).observe(canvas.parentElement);
-
-// TEXTOS, CONTADOR Y MODAL
-function typeWriter(elementId, text, speed, callback) {
-    const element = document.getElementById(elementId);
-    element.classList.remove('hidden');
-    element.style.animation = 'blink-cursor 0.75s step-end infinite';
-    let index = 0;
-
-    function type() {
-        if (index < text.length) {
-            element.textContent += text.charAt(index++);
-            setTimeout(type, reduceMotion ? 0 : speed);
-        } else {
-            element.style.borderRight = 'none';
-            callback?.();
-        }
-    }
-    type();
-}
-
-function updateCounter() {
-    const diff = Math.max(0, Date.now() - startDate.getTime());
-    const day = Math.floor(diff / 86400000);
-    const hour = Math.floor((diff / 3600000) % 24);
-    const minute = Math.floor((diff / 60000) % 60);
-    const second = Math.floor((diff / 1000) % 60);
-    const format = number => number.toString().padStart(2, '0');
-
-    document.getElementById('days').textContent = day;
-    document.getElementById('hours').textContent = format(hour);
-    document.getElementById('minutes').textContent = format(minute);
-    document.getElementById('seconds').textContent = format(second);
-}
-
-// ARCHIVO MENSUAL DE SORPRESAS
-const monthsGrid = document.getElementById('months-grid');
-const yearFilters = document.getElementById('year-filters');
-const archiveCount = document.getElementById('archive-count');
-const daysTogether = document.getElementById('days-together');
-let monthlyArchive = [];
-let selectedArchiveYear = new Date().getFullYear();
-
-function getMonthlyArchive() {
-    const now = new Date();
-    const archive = [];
-    const calendarDifference = (now.getFullYear() - startDate.getFullYear()) * 12
-        + (now.getMonth() - startDate.getMonth());
-    const availableMonths = Math.max(0, calendarDifference);
-
-    for (let monthNumber = 1; monthNumber <= availableMonths; monthNumber++) {
-        const anniversary = new Date(
-            startDate.getFullYear(),
-            startDate.getMonth() + monthNumber,
-            startDate.getDate()
-        );
-        archive.push({
-            number: monthNumber,
-            year: anniversary.getFullYear(),
-            month: anniversary.getMonth(),
-            day: anniversary.getDate(),
-            isCurrent: monthNumber === availableMonths
-        });
-    }
-    return archive;
-}
-
-function createMonthCard(item) {
-    const card = document.createElement('article');
-    card.className = `month-card ${item.isCurrent ? 'is-current' : 'is-locked'}`;
-
-    const top = document.createElement('div');
-    top.className = 'month-card-top';
-
-    const number = document.createElement('span');
-    number.className = 'month-number';
-    number.textContent = `Mes ${item.number}`;
-
-    const lock = document.createElement('span');
-    lock.className = 'month-lock';
-    lock.setAttribute('aria-hidden', 'true');
-    lock.textContent = item.isCurrent ? '◇' : '🔒';
-    top.append(number, lock);
-
-    const title = document.createElement('h3');
-    const formattedMonth = new Intl.DateTimeFormat('es-PE', {
-        month: 'long',
-        year: 'numeric'
-    }).format(new Date(item.year, item.month, 1));
-    const monthName = new Intl.DateTimeFormat('es-PE', { month: 'long' })
-        .format(new Date(item.year, item.month, 1));
-    title.textContent = formattedMonth;
-
-    const description = document.createElement('p');
-    description.textContent = item.isCurrent
-        ? `La sorpresa de ${monthName} está lista para descubrirse.`
-        : `Sorpresa del mes ${item.number}, todavía bloqueada.`;
-
-    card.append(top, title, description);
-
-    if (item.isCurrent) {
-        const openLink = document.createElement('a');
-        openLink.className = 'month-open';
-        openLink.href = '#pregunta';
-        openLink.dataset.openSurprise = 'true';
-        openLink.textContent = `Abrir sorpresa de ${monthName} →`;
-        card.appendChild(openLink);
-    }
-
-    return card;
-}
-
-function renderMonthlyArchive() {
-    monthsGrid.replaceChildren();
-    const visibleMonths = (selectedArchiveYear === 'all'
-        ? monthlyArchive
-        : monthlyArchive.filter(item => item.year === selectedArchiveYear))
-        .slice()
-        .sort((a, b) => b.number - a.number);
-
-    for (const item of visibleMonths) monthsGrid.appendChild(createMonthCard(item));
-}
-
-function renderYearFilters() {
-    const years = [...new Set(monthlyArchive.map(item => item.year))].sort((a, b) => b - a);
-    const filters = [{ value: 'all', label: 'Todos' }, ...years.map(year => ({ value: year, label: String(year) }))];
-    yearFilters.replaceChildren();
-
-    for (const filter of filters) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'year-filter';
-        button.textContent = filter.label;
-        button.classList.toggle('active', filter.value === selectedArchiveYear);
-        button.setAttribute('aria-pressed', String(filter.value === selectedArchiveYear));
-        button.addEventListener('click', () => {
-            selectedArchiveYear = filter.value;
-            yearFilters.querySelectorAll('.year-filter').forEach(item => {
-                const active = item === button;
-                item.classList.toggle('active', active);
-                item.setAttribute('aria-pressed', String(active));
-            });
-            renderMonthlyArchive();
-        });
-        yearFilters.appendChild(button);
-    }
-}
-
-function buildMonthlyArchive() {
-    monthlyArchive = getMonthlyArchive();
-    selectedArchiveYear = monthlyArchive.at(-1)?.year ?? new Date().getFullYear();
-    const elapsedDays = Math.max(0, Math.floor((Date.now() - startDate.getTime()) / 86400000));
-    archiveCount.textContent = monthlyArchive.length;
-    daysTogether.textContent = elapsedDays;
-    renderYearFilters();
-    renderMonthlyArchive();
-}
-
-const modal = document.getElementById('modal-overlay');
-const btnOpen = document.getElementById('surprise-btn');
-const btnClose = document.getElementById('close-btn');
-const memoryBtn = document.getElementById('memory-btn');
-const graduationPhoto = document.getElementById('graduation-photo');
-let previouslyFocused = null;
-
-graduationPhoto.addEventListener('error', () => {
-    graduationPhoto.src = graduationPhoto.dataset.fallback;
-}, { once: true });
-
-function openModal() {
-    previouslyFocused = document.activeElement;
-    modal.classList.add('active');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('modal-open');
-    btnClose.focus();
-}
-
-function closeModal() {
-    modal.classList.remove('active');
-    modal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
-    previouslyFocused?.focus();
-}
-
-btnOpen.addEventListener('click', openModal);
-memoryBtn.addEventListener('click', openModal);
-btnClose.addEventListener('click', closeModal);
-modal.addEventListener('click', event => {
-    if (event.target === modal) closeModal();
-});
-document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && modal.classList.contains('active')) closeModal();
-    if (event.key === 'Tab' && modal.classList.contains('active')) {
+    input.addEventListener("blur", () => {
+      normalizeDial(input);
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
         event.preventDefault();
-        btnClose.focus();
-    }
-});
-
-// SEGUNDA SORPRESA INTERACTIVA
-const yesBtn = document.getElementById('yes-btn');
-const noBtn = document.getElementById('no-btn');
-const surpriseSeal = document.getElementById('surprise-seal');
-const surpriseContent = document.getElementById('surprise-content');
-const unlockSurprise = document.getElementById('unlock-surprise');
-const questionState = document.getElementById('question-state');
-const answerState = document.getElementById('answer-state');
-const playfulMessage = document.getElementById('playful-message');
-const noStages = [
-    { button: '¿Segura?', message: 'Mmm... creo que ese botón se confundió 😌' },
-    { button: '¿Segurísima?', message: 'Mira que el “Sí” se ve más bonito...' },
-    { button: 'Última oportunidad', message: 'El “No” se está quedando pequeñito 👀' },
-    { button: '🔒 No disponible', message: 'Ups, esta opción fue bloqueada por exceso de amor 💗' }
-];
-let noAttempts = 0;
-
-function revealCurrentSurprise(withSealAnimation = true) {
-    if (!surpriseContent.hidden) return;
-
-    const showSurprise = () => {
-        surpriseSeal.hidden = true;
-        surpriseSeal.style.display = 'none';
-        surpriseContent.hidden = false;
-        surpriseContent.style.display = '';
-        surpriseContent.classList.add('surprise-content-reveal');
-        yesBtn.focus();
-    };
-
-    if (!withSealAnimation || reduceMotion) {
-        showSurprise();
-        return;
-    }
-
-    surpriseSeal.classList.add('seal-opening');
-    setTimeout(showSurprise, 460);
-}
-
-function handleNoAnswer() {
-    if (noAttempts >= noStages.length) return;
-    const stage = noStages[noAttempts];
-    noBtn.textContent = stage.button;
-    playfulMessage.textContent = stage.message;
-
-    const noScale = Math.max(.48, 1 - ((noAttempts + 1) * .15));
-    const yesScale = 1 + ((noAttempts + 1) * .1);
-    noBtn.style.transform = `scale(${noScale}) translateX(${noAttempts % 2 ? -10 : 10}px)`;
-    yesBtn.style.transform = `scale(${yesScale})`;
-    noAttempts++;
-
-    if (noAttempts === noStages.length) {
-        noBtn.classList.add('locked');
-        noBtn.disabled = true;
-    }
-}
-
-function releasePetals() {
-    if (reduceMotion) return;
-    const colors = ['#68182b', '#7b2034', '#b08d57', '#c8aa6e', '#f7f4ee'];
-    for (let i = 0; i < 32; i++) {
-        const petal = document.createElement('span');
-        petal.className = 'celebration-petal';
-        petal.style.left = `${Math.random() * 100}vw`;
-        petal.style.setProperty('--petal-color', colors[Math.floor(Math.random() * colors.length)]);
-        petal.style.setProperty('--fall-time', `${2.6 + Math.random() * 2.2}s`);
-        petal.style.setProperty('--drift', `${-90 + Math.random() * 180}px`);
-        petal.style.animationDelay = `${Math.random() * .7}s`;
-        document.body.appendChild(petal);
-        setTimeout(() => petal.remove(), 5600);
-    }
-}
-
-function handleYesAnswer() {
-    questionState.hidden = true;
-    answerState.hidden = false;
-    answerState.classList.add('fade-in');
-    releasePetals();
-}
-
-noBtn.addEventListener('click', handleNoAnswer);
-yesBtn.addEventListener('click', handleYesAnswer);
-unlockSurprise.addEventListener('click', revealCurrentSurprise);
-
-// LECTOR DE CAPÍTULOS
-const readerPages = [...document.querySelectorAll('.reader-page')];
-const pagePrev = document.getElementById('page-prev');
-const pageNext = document.getElementById('page-next');
-const pageTitle = document.getElementById('page-title');
-const pageStatus = document.getElementById('page-status');
-const pageDots = document.getElementById('page-dots');
-let currentPageIndex = 0;
-let swipeStartX = null;
-
-function updateReaderControls() {
-    const currentPage = readerPages[currentPageIndex];
-    pagePrev.disabled = currentPageIndex === 0;
-    pageNext.disabled = currentPageIndex === readerPages.length - 1;
-    pageTitle.textContent = currentPage.dataset.pageTitle;
-    pageStatus.textContent = `Página ${currentPageIndex + 1} de ${readerPages.length}`;
-    [...pageDots.children].forEach((dot, index) => dot.classList.toggle('active', index === currentPageIndex));
-}
-
-function goToPage(nextIndex, updateHash = true) {
-    const safeIndex = Math.max(0, Math.min(readerPages.length - 1, nextIndex));
-    currentPageIndex = safeIndex;
-
-    readerPages.forEach((page, index) => {
-        const active = index === safeIndex;
-        page.classList.toggle('page-active', active);
-        page.classList.toggle('page-before', index < safeIndex);
-        page.setAttribute('aria-hidden', String(!active));
-        if (active) page.scrollTop = 0;
+        input
+          .closest(".dial")
+          .querySelector(
+            '[data-step="' + (event.key === "ArrowUp" ? "1" : "-1") + '"]',
+          )
+          .click();
+      }
     });
-
-    updateReaderControls();
-    if (updateHash) history.replaceState(null, '', `#${readerPages[safeIndex].id}`);
-}
-
-function initBookReader() {
-    pageDots.replaceChildren();
-    readerPages.forEach(() => {
-        const dot = document.createElement('span');
-        dot.className = 'page-dot';
-        pageDots.appendChild(dot);
-    });
-
-    const hashIndex = readerPages.findIndex(page => `#${page.id}` === window.location.hash);
-    goToPage(hashIndex >= 0 ? hashIndex : 0, false);
-}
-
-pagePrev.addEventListener('click', () => goToPage(currentPageIndex - 1));
-pageNext.addEventListener('click', () => goToPage(currentPageIndex + 1));
-
-document.querySelector('main').addEventListener('click', event => {
-    const link = event.target.closest('a[href^="#"]');
-    if (!link) return;
-    const destination = readerPages.findIndex(page => `#${page.id}` === link.getAttribute('href'));
-    if (destination < 0) return;
-    event.preventDefault();
-    if (link.dataset.openSurprise === 'true') revealCurrentSurprise(false);
-    goToPage(destination);
-});
-
-document.addEventListener('keydown', event => {
-    if (modal.classList.contains('active')) return;
-    if (event.key === 'ArrowRight' || event.key === 'PageDown') goToPage(currentPageIndex + 1);
-    if (event.key === 'ArrowLeft' || event.key === 'PageUp') goToPage(currentPageIndex - 1);
-});
-
-document.querySelector('main').addEventListener('pointerdown', event => {
-    if (event.target.closest('.months-grid, .year-filters, .letter-page, button, a')) {
-        swipeStartX = null;
-        return;
-    }
-    swipeStartX = event.clientX;
-}, { passive: true });
-
-document.querySelector('main').addEventListener('pointerup', event => {
-    if (swipeStartX === null) return;
-    const distance = event.clientX - swipeStartX;
-    swipeStartX = null;
-    if (Math.abs(distance) < 70) return;
-    goToPage(currentPageIndex + (distance < 0 ? 1 : -1));
-}, { passive: true });
-
-function revealExperience() {
-    const title = document.getElementById('title');
-    const counterBox = document.getElementById('counter-box');
-    const actionArea = document.getElementById('action-area');
-    const initialDelay = reduceMotion ? 0 : 600;
-
-    setTimeout(() => {
-        title.classList.remove('hidden');
-        title.classList.add('fade-in');
-    }, initialDelay);
-
-    setTimeout(() => {
-        typeWriter('phrase1', texts[0], 34, () => {
-            setTimeout(() => {
-                typeWriter('phrase2', texts[1], 34, () => {
-                    counterBox.classList.remove('hidden');
-                    counterBox.classList.add('fade-in');
-                    actionArea.classList.remove('hidden');
-                    actionArea.classList.add('fade-in');
-                    updateCounter();
-                    setInterval(updateCounter, 1000);
-                });
-            }, reduceMotion ? 0 : 240);
+    input.addEventListener("paste", (event) => {
+      const value = event.clipboardData.getData("text").replace(/\D/g, "");
+      if (value.length === 6) {
+        event.preventDefault();
+        dateFields.forEach((field, index) => {
+          field.value = value.slice(index * 2, index * 2 + 2);
         });
-    }, reduceMotion ? 0 : 1300);
-}
+        $("#gate-message").textContent = "Fecha preparada. Pulsa para abrir.";
+      }
+    });
+  });
+  $("#secret-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    dateFields.forEach(normalizeDial);
+    verifyDate(true);
+  });
+  async function openArchive(animate = true) {
+    if (unlocking) return;
+    unlocking = true;
+    $("#gate-message").textContent = "Era esa. Siempre fuimos nosotros.";
+    $("#secret-form").inert = true;
+    if (animate) $("#secret-gate").classList.add("is-opening");
+    try {
+      archive = await api("/api/archive");
+      START = new Date(archive.startDate);
+    } catch(error) {
+      unlocking = false;
+      $("#secret-form").inert = false;
+      $("#secret-gate").classList.remove("is-opening");
+      throw error;
+    }
+    if (animate && !reducedMotion.matches)
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    $("#secret-gate").hidden = true;
+    $("#app").hidden = false;
+    $("#app").inert = false;
+    document.body.classList.remove("is-locked");
+    document.body.classList.add("app-enter");
+    unlocked = true;
+    unlocking = false;
+    renderAll();
+    updateCounter();
+    startReveals();
+    window.scrollTo({ top: 0, behavior: "instant" });
+    $("#hero-title").focus({ preventScroll: true });
+    setTimeout(() => document.body.classList.remove("app-enter"), 1600);
+  }
+  $("#lock-again").addEventListener("click", async () => {
+    try { await api("/api/logout","POST",{}); location.reload(); }
+    catch(error) { toast(error.message); }
+  });
+  function updateCounter() {
+    if (!unlocked || !START || document.hidden) return;
+    let elapsed = Math.max(
+      0,
+      Math.floor((Date.now() - START.getTime()) / 1000),
+    );
+    $("#days").textContent = Math.floor(elapsed / 86400);
+    $("#hours").textContent = pad(Math.floor(elapsed / 3600) % 24);
+    $("#minutes").textContent = pad(Math.floor(elapsed / 60) % 60);
+    $("#seconds").textContent = pad(elapsed % 60);
+  }
+  setInterval(updateCounter, 1000);
+  document.addEventListener("visibilitychange", updateCounter);
 
-function startExperience() {
-    resizeCanvas();
-    renderLoop();
-    buildMonthlyArchive();
-    initBookReader();
-    revealExperience();
-}
+  function startReveals() {
+    if (reducedMotion.matches || !("IntersectionObserver" in window)) return;
+    document.body.classList.add("motion-ready");
+    if (!observer)
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("visible");
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.08 },
+      );
+    $$(".reveal:not(.visible)").forEach((el) => observer.observe(el));
+  }
+  const sectionObserver =
+    "IntersectionObserver" in window
+      ? new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting)
+                $$(".nav-link").forEach((a) =>
+                  a.classList.toggle(
+                    "active",
+                    a.hash === "#" + entry.target.id,
+                  ),
+                );
+            });
+          },
+          { rootMargin: "-10% 0px -65% 0px", threshold: 0 },
+        )
+      : null;
+  ["inicio", "universo", "albumes", "cartas"].forEach((id) =>
+    sectionObserver?.observe(document.getElementById(id)),
+  );
 
-window.addEventListener('load', startExperience, { once: true });
+  function groupedAlbums() {
+    const groups = new Map();
+    visibleMemories().forEach((memory) => {
+      if (!groups.has(memory.album)) groups.set(memory.album, []);
+      groups.get(memory.album).push(memory);
+    });
+    return [...groups.entries()];
+  }
+  function makeMemoryCard(memory) {
+    const card = node("article", "memory-card");
+    const button = node("button");
+    button.type = "button";
+    button.dataset.memory = memory.id;
+    const thumb = node("div", "memory-thumb");
+    const img = node("img");
+    img.src = memory.thumb || memory.src;
+    img.alt = memory.title;
+    img.loading = "lazy";
+    thumb.append(img);
+    if (memory.kind === "video") thumb.append(node("span", "video-badge", "▶ VÍDEO"));
+    const caption = node("div", "memory-card-caption");
+    caption.append(node("h3", "", memory.title), node("span", "", "↗"));
+    button.append(
+      thumb,
+      caption,
+      node("small", "", memory.date ? prettyDate(memory.date) : memory.album),
+    );
+    card.append(button);
+    if (archive.favorites.includes(memory.id)) {
+      const mark = node("span");
+      mark.innerHTML = icon("heart");
+      mark.firstChild.classList.add("favorite-mark");
+      card.append(mark);
+    }
+    return card;
+  }
+  function renderAll() {
+    renderAlbums();
+    renderPhotos();
+    renderLetters();
+    renderTimeline();
+    renderOrbit();
+    syncDesk();
+    applyRole();
+    if ($("#admin-dialog").open) renderAdmin();
+    startReveals();
+  }
+  function syncDesk() {
+    const choices = visibleMemories().filter(m => m.kind !== "video");
+    $$(".polaroid").forEach((card,i) => {
+      const memory = choices.find(m=>m.id===card.dataset.memory) || choices[i];
+      card.hidden = !memory;
+      if (memory) {card.dataset.memory=memory.id; const img=$("img",card);if(img.getAttribute("src")!==memory.src)img.src=memory.src;img.alt=memory.title;card.setAttribute("aria-label","Abrir "+memory.title);}
+    });
+  }
+  function renderAlbums() {
+    const grid = $("#album-grid");
+    grid.replaceChildren();
+    const albums = groupedAlbums();
+    albums.forEach(([name, memories], index) => {
+      const card = node("button", "album-card reveal");
+      card.type = "button";
+      card.dataset.album = name;
+      card.setAttribute("aria-label", "Abrir álbum " + name);
+      card.style.setProperty("--reveal-delay", Math.min(index, 2) * 90 + "ms");
+      const cover = node("div", "album-cover");
+      const img = node("img");
+      img.src = memories[0].thumb || memories[0].src;
+      img.alt = "";
+      img.loading = "lazy";
+      const copy = node("div", "album-cover-text");
+      copy.append(
+        node("span", "", "EL ARCHIVO DE NOSOTROS"),
+        node("h3", "", name),
+        node("span", "album-volume", "VOLUMEN " + pad(index + 1)),
+      );
+      cover.append(img, copy);
+      const caption = node("div", "album-caption");
+      caption.append(
+        node("h3", "", name),
+        node(
+          "span",
+          "",
+          memories.length +
+            " " +
+            (memories.length === 1 ? "recuerdo" : "recuerdos"),
+        ),
+      );
+      card.append(cover, caption);
+      grid.append(card);
+    });
+    const add = node("button", "add-album reveal");
+    add.type = "button";
+    add.dataset.add = "memory";
+    add.innerHTML = icon("plus");
+    add.append(
+      node("strong", "", "Lo que viene"),
+      node("span", "", "Un nuevo álbum empieza con un pequeño instante."),
+    );
+    grid.append(add);
+    $("#album-options").replaceChildren(
+      ...albums.map(([name]) => {
+        const option = node("option");
+        option.value = name;
+        return option;
+      }),
+    );
+    $("#collection-count").textContent =
+      visibleMemories().length + " instantes para volver";
+    if ($("#album-dialog").open) renderAlbumContents();
+  }
+  function filteredPhotos() {
+    return visibleMemories().filter(m => (filter !== "favorites" || archive.favorites.includes(m.id)) && (monthFilter === "all" || (m.month || "undated") === monthFilter));
+  }
+  function renderPhotos() {
+    const memories = filteredPhotos();
+    $("#photo-grid").replaceChildren(...memories.slice(0,photoLimit).map(makeMemoryCard));
+    $("#more-photos").hidden = memories.length <= photoLimit;
+    $("#empty-favorites").hidden = memories.length > 0;
+    $("#empty-favorites").textContent = filter === "favorites" ? "Aún no hay favoritos aquí. Abre un recuerdo y toca su corazón." : "Todavía no hay recuerdos en este mes.";
+  }
+  $("#more-photos").addEventListener("click",()=>{photoLimit+=24;renderPhotos();});
+  function renderTimeline() {
+    const months = [...new Set(visibleMemories().map(m=>m.month || "undated"))].sort();
+    const target=$("#month-timeline");
+    target.replaceChildren(...["all",...months].map(month=>{
+      const button=node("button",month===monthFilter?"active":"",month==="all"?"Toda nuestra historia":monthName(month==="undated"?"":month));
+      button.type="button";button.setAttribute("aria-pressed",String(month===monthFilter));
+      if(month!=="all")button.append(node("span","",visibleMemories().filter(m=>(m.month || "undated")===month).length));
+      button.addEventListener("click",()=>{monthFilter=month;photoLimit=24;renderTimeline();renderPhotos();});
+      return button;
+    }));
+  }
+  function orbitMemories() {
+    const all=visibleMemories();
+    const featured=all.filter(m=>m.featured);
+    return featured.length ? featured : all.slice(0,16);
+  }
+  function renderOrbit() {
+    const memories=orbitMemories(), target=$("#orbit-cards");
+    if(!memories.length){target.replaceChildren();$("#orbit-caption").textContent="Nuestro próximo instante está por llegar.";$("#orbit-counter").textContent="";return;}
+    orbitIndex=(orbitIndex+memories.length)%memories.length;
+    const slots=memories.length>4?[-2,-1,0,1,2]:memories.length>2?[-1,0,1]:memories.length===2?[0,1]:[0];
+    const old=new Map([...target.children].map(el=>[el.dataset.orbitId,el]));
+    const keep=new Set();
+    slots.forEach(slot=>{
+      const index=(orbitIndex+slot+memories.length)%memories.length,memory=memories[index];keep.add(memory.id);
+      let card=old.get(memory.id);
+      if(!card) {
+        card=node("button","orbit-card");card.type="button";card.dataset.orbitId=memory.id;
+        const image=node("img");image.src=memory.thumb || memory.src;image.alt=memory.title;image.draggable=false;
+        card.append(image,node("span","orbit-card-caption",memory.kind==="video"?"▶ Volver a este momento":memory.title));
+        card.addEventListener("click",()=>{const delta=Number(card.dataset.slot);if(delta){orbitIndex+=delta;renderOrbit();}else openMemory(memory.id,orbitMemories().map(m=>m.id));});
+        target.append(card);
+      }
+      card.dataset.slot=slot;card.style.setProperty("--slot",slot);card.style.setProperty("--depth",Math.abs(slot));
+      card.classList.toggle("is-center",slot===0);card.setAttribute("aria-label",(slot===0?"Abrir recuerdo: ":"Acercar: ")+memory.title);
+      card.style.zIndex=String(10-Math.abs(slot));
+    });
+    [...target.children].forEach(el=>{if(!keep.has(el.dataset.orbitId))el.remove();});
+    $("#orbit-counter").textContent=pad(orbitIndex+1)+" / "+pad(memories.length)+" · INSTANTES QUE BRILLAN";
+    $("#orbit-caption").textContent=memories[orbitIndex].date?prettyDate(memories[orbitIndex].date):memories[orbitIndex].album;
+    $("#orbit-prev").disabled=$("#orbit-next").disabled=memories.length<2;
+  }
+  $("#orbit-prev").addEventListener("click",()=>{orbitIndex--;renderOrbit();});
+  $("#orbit-next").addEventListener("click",()=>{orbitIndex++;renderOrbit();});
+  let orbitTouch=null;
+  $("#orbit-scene").addEventListener("touchstart",event=>{orbitTouch={x:event.touches[0].clientX,y:event.touches[0].clientY};},{passive:true});
+  $("#orbit-scene").addEventListener("touchend",event=>{if(!orbitTouch)return;const dx=event.changedTouches[0].clientX-orbitTouch.x,dy=event.changedTouches[0].clientY-orbitTouch.y;if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5){orbitIndex+=dx<0?1:-1;renderOrbit();}orbitTouch=null;},{passive:true});
+
+  function renderLetters() {
+    const grid = $("#letter-grid");
+    grid.replaceChildren();
+    archive.letters.forEach((letter, index) => {
+      const button = node("button", "envelope-card");
+      button.type = "button";
+      button.dataset.letter = letter.id;
+      button.setAttribute("aria-label", "Abrir carta: " + letter.title);
+      const envelope = node("div", "envelope");
+      envelope.append(
+        node("span", "envelope-flap"),
+        node("span", "wax-seal", "n."),
+        node("span", "envelope-tag", "CARTA " + pad(index + 1) + " · PARA TI"),
+      );
+      button.append(envelope, node("span", "", letter.title));
+      grid.append(button);
+    });
+  }
+  function showDialog(dialog) {
+    if (!dialog.open) dialog.showModal();
+    document.body.classList.add("has-dialog");
+  }
+  $$("dialog").forEach((dialog) => {
+    $("[data-close]", dialog).addEventListener("click", () => dialog.close());
+    dialog.addEventListener("close", () => {
+      if (!$$("dialog[open]").length)
+        document.body.classList.remove("has-dialog");
+      if (dialog.id === "editor-dialog") clearPreviews();
+      if (dialog.id === "memory-dialog") $("#viewer-video").pause();
+    });
+    dialog.addEventListener("click", (event) => {
+      if (event.target !== dialog) return;
+      const rect = dialog.getBoundingClientRect();
+      if (
+        event.clientX < rect.left ||
+        event.clientX > rect.right ||
+        event.clientY < rect.top ||
+        event.clientY > rect.bottom
+      )
+        dialog.close();
+    });
+  });
+  function openAlbum(name) {
+    activeAlbum = name;
+    renderAlbumContents();
+    showDialog($("#album-dialog"));
+  }
+  function renderAlbumContents() {
+    const memories = visibleMemories().filter((m) => m.album === activeAlbum);
+    $("#album-dialog-title").textContent = activeAlbum;
+    $("#album-dialog-description").textContent =
+      albumDescriptions[activeAlbum] ||
+      "Un lugar para volver a nuestros momentos, uno a uno.";
+    $("#album-dialog-photos").replaceChildren(...memories.map(makeMemoryCard));
+  }
+  $("#add-to-album").addEventListener("click", () =>
+    openEditor("memory", null, activeAlbum),
+  );
+  function openMemory(id, ids) {
+    viewerIds = ids || visibleMemories().map((m) => m.id);
+    viewerIndex = Math.max(0, viewerIds.indexOf(id));
+    renderViewer();
+    showDialog($("#memory-dialog"));
+  }
+  function currentMemory() {
+    return archive.memories.find((m) => m.id === viewerIds[viewerIndex]);
+  }
+  function renderViewer() {
+    const memory = currentMemory();
+    if (!memory) return;
+    const photo = $("#viewer-photo");
+    const video = $("#viewer-video");
+    video.pause();
+    video.hidden = memory.kind !== "video";
+    photo.hidden = memory.kind === "video";
+    if (memory.kind === "video") {video.src=memory.src;video.poster=memory.thumb || "";}
+    else {video.removeAttribute("src");photo.src=memory.src;}
+    photo.alt = memory.title;
+    photo.style.animation = "none";
+    void photo.offsetWidth;
+    photo.style.animation = "";
+    $("#memory-album").textContent = memory.album;
+    $("#memory-title").textContent = memory.title;
+    $("#memory-date").textContent = prettyDate(memory.date);
+    $("#memory-date").hidden = !memory.date;
+    $("#memory-note").textContent =
+      memory.note || "Hay instantes que hablan por sí solos.";
+    $("#viewer-count").textContent =
+      pad(viewerIndex + 1) + " / " + pad(viewerIds.length);
+    const favorite = archive.favorites.includes(memory.id);
+    $("#favorite-memory").setAttribute("aria-pressed", String(favorite));
+    $("#favorite-memory span").textContent = favorite
+      ? "Guardado en favoritos"
+      : "Guardar favorito";
+    $("#prev-memory").disabled = $("#next-memory").disabled =
+      viewerIds.length < 2;
+  }
+  function moveMemory(direction) {
+    viewerIndex =
+      (viewerIndex + direction + viewerIds.length) % viewerIds.length;
+    renderViewer();
+  }
+  $("#prev-memory").addEventListener("click", () => moveMemory(-1));
+  $("#next-memory").addEventListener("click", () => moveMemory(1));
+  document.addEventListener("keydown", (event) => {
+    if (!$("#memory-dialog").open || $("#editor-dialog").open) return;
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      moveMemory(1);
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      moveMemory(-1);
+    }
+  });
+  let touchStart = null;
+  $(".viewer-stage").addEventListener(
+    "touchstart",
+    (event) => {
+      touchStart = {
+        x: event.changedTouches[0].clientX,
+        y: event.changedTouches[0].clientY,
+      };
+    },
+    { passive: true },
+  );
+  $(".viewer-stage").addEventListener(
+    "touchend",
+    (event) => {
+      if (!touchStart) return;
+      const dx = event.changedTouches[0].clientX - touchStart.x,
+        dy = event.changedTouches[0].clientY - touchStart.y;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5)
+        moveMemory(dx < 0 ? 1 : -1);
+      touchStart = null;
+    },
+    { passive: true },
+  );
+  $("#favorite-memory").addEventListener("click", async (event) => {
+    const memory = currentMemory();
+    if (!memory) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const favorites = archive.favorites.includes(memory.id)
+        ? archive.favorites.filter((id) => id !== memory.id)
+        : [...archive.favorites, memory.id];
+      await api("/api/favorite","POST",{id:memory.id,favorite:favorites.includes(memory.id)});
+      archive = await api("/api/archive");
+      renderViewer();
+      renderPhotos();
+      if ($("#album-dialog").open) renderAlbumContents();
+      if (favorites.includes(memory.id)) burst(button);
+    } catch (error) {
+      toast(error.message || "No se pudo guardar el favorito.");
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $("#random-memory").addEventListener("click", () => {
+    const memories=visibleMemories();
+    if(memories.length)openMemory(memories[Math.floor(Math.random()*memories.length)].id);
+  });
+  $$(".filter-tabs button").forEach((button) =>
+    button.addEventListener("click", () => {
+      filter = button.dataset.filter;
+      photoLimit = 24;
+      $$(".filter-tabs button").forEach((other) => {
+        const active = other === button;
+        other.classList.toggle("active", active);
+        other.setAttribute("aria-pressed", String(active));
+      });
+      renderPhotos();
+    }),
+  );
+  document.addEventListener("click", (event) => {
+    if (!unlocked) return;
+    const add = event.target.closest("[data-add]");
+    if (add) {
+      openEditor(add.dataset.add);
+      return;
+    }
+    const album = event.target.closest("[data-album]");
+    if (album) {
+      openAlbum(album.dataset.album);
+      return;
+    }
+    const memory = event.target.closest("[data-memory]");
+    if (memory) {
+      if (memory.dataset.dragged === "true") {
+        memory.dataset.dragged = "false";
+        return;
+      }
+      const inAlbum = memory.closest("#album-dialog");
+      const ids = inAlbum ? visibleMemories().filter(m=>m.album===activeAlbum).map(m=>m.id)
+        : memory.closest("#photo-grid") ? filteredPhotos().map(m=>m.id) : undefined;
+      openMemory(memory.dataset.memory, ids);
+      return;
+    }
+    const letter = event.target.closest("[data-letter]");
+    if (letter && !letter.classList.contains("opening")) {
+      letter.classList.add("opening");
+      activeLetter = letter.dataset.letter;
+      setTimeout(
+        () => {
+          showLetter();
+          letter.classList.remove("opening");
+        },
+        reducedMotion.matches ? 0 : 620,
+      );
+    }
+  });
+  function showLetter() {
+    const letter = archive.letters.find((l) => l.id === activeLetter);
+    if (!letter) return;
+    $("#letter-title").textContent = letter.title;
+    $("#letter-body").textContent = letter.note;
+    showDialog($("#letter-dialog"));
+  }
+  function burst(element) {
+    if (reducedMotion.matches) return;
+    const rect = element.getBoundingClientRect();
+    for (let i = 0; i < 10; i++) {
+      const particle = node("span", "heart-particle", i % 3 ? "♡" : "✧");
+      particle.style.left = rect.left + rect.width / 2 + "px";
+      particle.style.top = rect.top + rect.height / 2 + "px";
+      particle.style.setProperty("--fly-x", (Math.random() - 0.5) * 190 + "px");
+      particle.style.setProperty("--fly-y", -35 - Math.random() * 130 + "px");
+      particle.style.setProperty(
+        "--fly-r",
+        (Math.random() - 0.5) * 100 + "deg",
+      );
+      particle.style.fontSize = 12 + Math.random() * 15 + "px";
+      document.body.append(particle);
+      setTimeout(() => particle.remove(), 1300);
+    }
+  }
+
+  // Move photos on the desk with a mouse; touch keeps natural page scrolling.
+  let stack = 6;
+  $$(".polaroid").forEach((photo) => {
+    let drag = null,
+      offset = { x: 0, y: 0 };
+    photo.addEventListener("pointerdown", (event) => {
+      if (event.pointerType !== "mouse" || event.button !== 0) return;
+      drag = {
+        startX: event.clientX,
+        startY: event.clientY,
+        x: offset.x,
+        y: offset.y,
+        moved: false,
+      };
+      photo.dataset.dragged = "false";
+    });
+    photo.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      const dx = event.clientX - drag.startX,
+        dy = event.clientY - drag.startY;
+      if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+      if (!drag.moved) {
+        photo.setPointerCapture(event.pointerId);
+        photo.style.zIndex = String(++stack);
+        drag.moved = true;
+      }
+      event.preventDefault();
+      const bounds = $("#memory-desk").getBoundingClientRect();
+      offset.x = Math.max(
+        -photo.offsetLeft + 10,
+        Math.min(
+          bounds.width - photo.offsetLeft - photo.offsetWidth - 10,
+          drag.x + dx,
+        ),
+      );
+      offset.y = Math.max(
+        -photo.offsetTop + 10,
+        Math.min(
+          bounds.height - photo.offsetTop - photo.offsetHeight - 10,
+          drag.y + dy,
+        ),
+      );
+      photo.style.setProperty("--drag-x", offset.x + "px");
+      photo.style.setProperty("--drag-y", offset.y + "px");
+      photo.classList.add("dragging");
+    });
+    const end = () => {
+      if (!drag) return;
+      photo.dataset.dragged = String(drag.moved);
+      if (drag.moved) $("#reset-desk").hidden = false;
+      photo.classList.remove("dragging");
+      drag = null;
+    };
+    photo.addEventListener("pointerup", end);
+    photo.addEventListener("pointercancel", end);
+    $("#reset-desk").addEventListener("click", () => {
+      offset = { x: 0, y: 0 };
+      photo.style.removeProperty("--drag-x");
+      photo.style.removeProperty("--drag-y");
+      photo.style.removeProperty("z-index");
+      photo.dataset.dragged = "false";
+      $("#reset-desk").hidden = true;
+    });
+  });
+
+  function clearPreviews() {
+    previewURLs.forEach((url) => URL.revokeObjectURL(url));
+    previewURLs = [];
+    selectedFiles = [];
+    $("#upload-preview").replaceChildren();
+    $("#photo-files").value = "";
+  }
+  function openEditor(mode, id = null, album = "") {
+    if(auth.role !== "admin"){openAdmin();return;}
+    editorMode = mode;
+    editingId = id;
+    clearPreviews();
+    $("#editor-form").reset();
+    $("#editor-error").textContent = "";
+    $("#memory-fields").hidden = mode === "letter";
+    const existing = id
+      ? (mode === "memory" ? archive.memories : archive.letters).find(
+          (item) => item.id === id,
+        )
+      : null;
+    $("#editor-title").textContent = id
+      ? "Un detalle que merece quedarse."
+      : mode === "letter"
+        ? "Palabras que abrazan."
+        : "Guardemos este instante.";
+    $("#entry-title").value = existing?.title || "";
+    $("#entry-title").placeholder =
+      mode === "letter"
+        ? "Por ejemplo: Cuando necesites un abrazo"
+        : "¿Cómo llamarías a este recuerdo?";
+    $("#entry-note").value = existing?.note || "";
+    $("#entry-note").required = mode === "letter";
+    $("#entry-note").placeholder =
+      mode === "letter"
+        ? "Escribe lo que te gustaría que leyera…"
+        : "Ese pequeño detalle que no aparece en la foto…";
+    $("#entry-album").value = existing?.album || album;
+    $("#entry-date").value = existing?.date || "";
+    $("#entry-month").value = existing?.month || "";
+    $(".upload-zone").hidden = Boolean(id);
+    $("#save-entry").disabled = false;
+    $("#save-entry").innerHTML = "Guardar con amor " + icon("heart");
+    showDialog($("#editor-dialog"));
+  }
+  $("#edit-memory").addEventListener("click", () =>
+    openEditor("memory", currentMemory()?.id),
+  );
+  $("#edit-letter").addEventListener("click", () =>
+    openEditor("letter", activeLetter),
+  );
+  $("#photo-files").addEventListener("change", (event) => {
+    previewURLs.forEach((url) => URL.revokeObjectURL(url));
+    previewURLs = [];
+    $("#upload-preview").replaceChildren();
+    const files = [...event.target.files];
+    selectedFiles = [];
+    if (files.length > 10) {
+      $("#editor-error").textContent = "Elige hasta 10 fotos por recuerdo.";
+      event.target.value = "";
+      return;
+    }
+    if (
+      files.some(
+        (file) =>
+          !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+          file.size > 20 * 1024 * 1024,
+      )
+    ) {
+      $("#editor-error").textContent =
+        "Usa fotografías JPG, PNG o WebP de hasta 20 MB cada una.";
+      event.target.value = "";
+      return;
+    }
+    $("#editor-error").textContent = "";
+    selectedFiles = files;
+    files.forEach((file) => {
+      const img = node("img");
+      img.alt = file.name;
+      img.src = URL.createObjectURL(file);
+      previewURLs.push(img.src);
+      $("#upload-preview").append(img);
+    });
+  });
+  async function compressPhoto(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      const ratio = Math.min(
+        1,
+        1800 / Math.max(image.naturalWidth, image.naturalHeight),
+      );
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#f5f0e8";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", 0.88);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  $("#editor-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const title = $("#entry-title").value.trim(),
+      note = $("#entry-note").value.trim();
+    if (!title) {
+      $("#entry-title").focus();
+      return;
+    }
+    if (editorMode === "letter" && !note) {
+      $("#entry-note").focus();
+      return;
+    }
+    if (editorMode === "memory" && !editingId && !selectedFiles.length) {
+      $("#editor-error").textContent =
+        "Elige al menos una fotografía para guardar este recuerdo.";
+      return;
+    }
+    const button = $("#save-entry");
+    button.disabled = true;
+    button.textContent = "Guardando nuestro momento…";
+    $("#editor-error").textContent = "";
+    try {
+      const updated = Date.now();
+      let next = { ...archive };
+      if (editorMode === "letter") {
+        const letter = { id: editingId || uid(), title, note, updated };
+        next.letters = editingId
+          ? archive.letters.map((l) => (l.id === editingId ? letter : l))
+          : [...archive.letters, letter];
+      } else {
+        const album = $("#entry-album").value.trim() || "Nuestros momentos",
+          date = $("#entry-date").value,
+          month = $("#entry-month").value || date.slice(0,7);
+        if (editingId)
+          next.memories = archive.memories.map((m) =>
+            m.id === editingId
+              ? { ...m, title, note, album, date, month, updated }
+              : m,
+          );
+        else {
+          const photos = [];
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const src = await compressPhoto(selectedFiles[i]);
+            photos.push({
+              id: uid(),
+              title: selectedFiles.length > 1 ? title + " · " + (i + 1) : title,
+              note,
+              album,
+              date,
+              month,
+              originalName: selectedFiles[i].name,
+              src,
+              updated,
+            });
+          }
+          next.memories = [...archive.memories, ...photos];
+        }
+      }
+      await saveArchive(next);
+      renderAll();
+      if ($("#memory-dialog").open) renderViewer();
+      if ($("#letter-dialog").open) showLetter();
+      $("#editor-dialog").close();
+      toast(
+        editorMode === "letter"
+          ? "Tu carta ya tiene su sobre."
+          : "Recuerdo guardado. Un instante más para volver.",
+      );
+    } catch (error) {
+      $("#editor-error").textContent =
+        error.name === "QuotaExceededError"
+          ? "El navegador se quedó sin espacio. Exporta un respaldo antes de guardar más fotos."
+          : error.message ||
+            "No se pudo guardar. Tus recuerdos anteriores siguen intactos.";
+    } finally {
+      button.disabled = false;
+      button.innerHTML = "Guardar con amor " + icon("heart");
+    }
+  });
+
+  async function sourceAsDataURL(src) {
+    if (src.startsWith("data:")) return src;
+    const response = await fetch(src);
+    if (!response.ok)
+      throw new Error("No se pudo incluir una de las fotografías originales.");
+    const blob = await response.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  $("#export-archive").addEventListener("click", async (event) => {
+    if(auth.role !== "admin"){openAdmin();return;}
+    const button = event.currentTarget;
+    button.disabled = true;
+    toast("Preparando una copia con todas las fotos y cartas…");
+    try {
+      const memories = [];
+      for (const memory of archive.memories)
+        memories.push({ ...memory, src: await sourceAsDataURL(memory.src), ...(memory.kind === "video" ? {thumb:await sourceAsDataURL(memory.thumb)} : {}) });
+      const backup = {
+        format: "nosotros-archive",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        memories,
+        letters: archive.letters,
+        favorites: archive.favorites,
+      };
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(backup)], { type: "application/json" }),
+      );
+      const link = node("a");
+      link.href = url;
+      link.download =
+        "nosotros-respaldo-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      toast("Respaldo preparado. Guárdalo en un lugar de confianza.");
+    } catch (error) {
+      toast(
+        error.message ||
+          "No se pudo crear el respaldo. Abre la web mediante un servidor local.",
+      );
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $("#import-archive").addEventListener("click", () =>
+    $("#import-file").click(),
+  );
+  $("#import-file").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+      if(auth.role !== "admin")throw new Error("Entra al taller antes de importar.");
+      if (file.size > 80 * 1024 * 1024)
+        throw new Error("El respaldo supera el límite de 80 MB.");
+      const parsed = JSON.parse(await file.text());
+      if (parsed.format !== "nosotros-archive" || parsed.version !== 1)
+        throw new Error("Elige un respaldo creado desde esta web.");
+      const incoming = validateArchive(parsed);
+      const merge = (current, items) => {
+        const map = new Map(current.map((item) => [item.id, item]));
+        items.forEach((item) => {
+          if (!map.has(item.id) || item.updated > map.get(item.id).updated)
+            map.set(item.id, item);
+        });
+        return [...map.values()];
+      };
+      await saveArchive({
+        memories: merge(archive.memories, incoming.memories),
+        letters: merge(archive.letters, incoming.letters),
+        favorites: [...new Set([...archive.favorites, ...incoming.favorites])],
+      });
+      renderAll();
+      toast("Respaldo importado. Tus recuerdos anteriores siguen aquí.");
+    } catch (error) {
+      toast(error.message || "No se pudo importar el respaldo.");
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  function openAdmin() {
+    if(auth.role==="admin"){renderAdmin();showDialog($("#admin-dialog"));}
+    else {$("#admin-login-error").textContent="";showDialog($("#admin-login-dialog"));updateCooldown();}
+  }
+  $("#open-admin").addEventListener("click",openAdmin);
+  $("#admin-return").addEventListener("click",()=>$("#admin-dialog").close());
+  $("#admin-login-form").addEventListener("submit",async event=>{
+    event.preventDefault();const button=$("button[type=submit]",event.currentTarget);button.disabled=true;
+    try{
+      auth=await api("/api/admin/login","POST",{password:$("#admin-password").value});
+      $("#admin-password").value="";archive=await api("/api/archive");renderAll();
+      $("#admin-login-dialog").close();openAdmin();
+    }catch(error){$("#admin-login-error").textContent=error.message;if(error.retryAfter)adminCooldownUntil=Date.now()+error.retryAfter*1000;}
+    finally{button.disabled=false;updateCooldown();}
+  });
+  function adminMemories(){
+    const query=$("#admin-search").value.toLocaleLowerCase("es").trim(),month=$("#admin-month").value,album=$("#admin-album").value;
+    return archive.memories.filter(m=>(month==="all" || (m.month || "undated")===month) && (album==="all" || m.album===album) && (!query || [m.title,m.album,m.originalName,m.note].join(" ").toLocaleLowerCase("es").includes(query)));
+  }
+  function fillSelect(element,values,label){
+    const previous=element.value;
+    element.replaceChildren(...[["all",label],...values].map(([value,text])=>{const option=node("option","",text);option.value=value;return option;}));
+    element.value=[...element.options].some(o=>o.value===previous)?previous:"all";
+  }
+  function renderAdmin(){
+    fillSelect($("#admin-month"),[...new Set(archive.memories.map(m=>m.month || "undated"))].sort().map(m=>[m,monthName(m==="undated"?"":m)]),"Todos los meses");
+    fillSelect($("#admin-album"),[...new Set(archive.memories.map(m=>m.album))].sort().map(m=>[m,m]),"Todos los álbumes");
+    $("#admin-stats").replaceChildren(...[
+      [archive.memories.filter(m=>m.kind!=="video").length,"fotografías"],
+      [archive.memories.filter(m=>m.kind==="video").length,"vídeos"],
+      [new Set(archive.memories.map(m=>m.month).filter(Boolean)).size,"meses juntos"],
+      [archive.memories.filter(m=>m.hidden).length,"solo en el taller"]
+    ].map(([value,label])=>{const el=node("div");el.append(node("strong","",value),node("span","",label));return el;}));
+    renderAdminGrid();
+  }
+  function renderAdminGrid(){
+    const memories=adminMemories();
+    $("#admin-grid").replaceChildren(...memories.map(memory=>{
+      const card=node("article","admin-card"+(memory.hidden?" is-hidden":""));
+      const label=node("label","admin-photo");const checkbox=node("input");checkbox.type="checkbox";checkbox.checked=selected.has(memory.id);
+      checkbox.setAttribute("aria-label","Seleccionar "+memory.title+" "+(memory.originalName || memory.id));
+      checkbox.addEventListener("change",()=>{checkbox.checked?selected.add(memory.id):selected.delete(memory.id);updateSelected();});
+      const img=node("img");img.src=memory.thumb || memory.src;img.alt="";img.loading="lazy";
+      label.append(img,checkbox);
+      const badges=node("div","admin-badges");if(memory.featured)badges.append(node("span","","✧ Destacado"));if(memory.hidden)badges.append(node("span","","Oculto"));if(memory.kind==="video")badges.append(node("span","","▶ Vídeo"));
+      label.append(badges);const caption=node("div","admin-card-copy");
+      caption.append(node("strong","",memory.title),node("span","",monthName(memory.month)),node("small","",memory.album));
+      const edit=node("button","text-button","Editar detalles ↗");edit.type="button";edit.addEventListener("click",()=>openEditor("memory",memory.id));caption.append(edit);
+      card.append(label,caption);return card;
+    }));
+    $("#admin-empty").hidden=memories.length>0;updateSelected();
+  }
+  function updateSelected(){
+    $("#selected-count").textContent=selected.size+" seleccionados";
+    ["apply-bulk","feature-selection","unfeature-selection","hide-selection","show-selection","undate-selection"].forEach(id=>$("#"+id).disabled=!selected.size);
+  }
+  ["admin-search","admin-month","admin-album"].forEach(id=>$("#"+id).addEventListener(id==="admin-search"?"input":"change",renderAdminGrid));
+  $("#select-visible").addEventListener("click",()=>{adminMemories().forEach(m=>selected.add(m.id));renderAdminGrid();});
+  $("#clear-selection").addEventListener("click",()=>{selected.clear();renderAdminGrid();});
+  let bulkBusy=false;
+  async function bulkUpdate(patch){
+    if(!selected.size || bulkBusy)return;bulkBusy=true;$("#admin-error").textContent="";
+    try{await saveArchive({...archive,memories:archive.memories.map(m=>selected.has(m.id)?{...m,...patch,updated:Date.now()}:m)});renderAll();toast("Los recuerdos ya tienen su nuevo lugar.");}
+    catch(error){$("#admin-error").textContent=error.message;}
+    finally{bulkBusy=false;}
+  }
+  $("#apply-bulk").addEventListener("click",()=>{
+    const month=$("#bulk-month").value,album=$("#bulk-album").value.trim();
+    if(!month&&!album){$("#admin-error").textContent="Elige un mes o escribe un álbum para aplicar el cambio.";return;}
+    bulkUpdate({...month?{month}:{},...album?{album}:{}});
+  });
+  $("#feature-selection").addEventListener("click",()=>bulkUpdate({featured:true}));
+  $("#unfeature-selection").addEventListener("click",()=>bulkUpdate({featured:false}));
+  $("#hide-selection").addEventListener("click",()=>bulkUpdate({hidden:true}));
+  $("#show-selection").addEventListener("click",()=>bulkUpdate({hidden:false}));
+  $("#undate-selection").addEventListener("click",()=>bulkUpdate({month:""}));
+  $("#admin-logout").addEventListener("click",async()=>{
+    try{auth=await api("/api/admin/logout","POST",{});archive=await api("/api/archive");selected.clear();$("#admin-dialog").close();renderAll();toast("Taller cerrado. Volvemos a disfrutar lo nuestro.");}
+    catch(error){toast(error.message);}
+  });
+  $("#refresh-archive").addEventListener("click",async()=>{try{archive=await api("/api/archive");renderAll();toast("Archivo actualizado.");}catch(error){toast(error.message);}});
+  $("#password-form").addEventListener("submit",async event=>{
+    event.preventDefault();const button=$("button",event.currentTarget);button.disabled=true;
+    try{
+      if($("#new-password").value!==$("#confirm-password").value)throw new Error("Las dos claves nuevas no coinciden.");
+      auth=await api("/api/admin/password","POST",{current:$("#current-password").value,next:$("#new-password").value});
+      event.target.reset();$("#password-message").textContent="Clave actualizada. Las demás sesiones de administración se cerraron.";
+    }catch(error){$("#password-message").textContent=error.message;}
+    finally{button.disabled=false;}
+  });
+  $("#recover-local").addEventListener("click",async()=>{
+    try{
+      if(!indexedDB.databases)throw new Error("Este navegador no permite localizar archivos anteriores.");
+      const databases=await indexedDB.databases();
+      if(!databases.some(d=>d.name==="nosotros-archive"))throw new Error("No hay un archivo anterior en este navegador y dirección.");
+      const old=await new Promise((resolve,reject)=>{const request=indexedDB.open("nosotros-archive");request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result;if(!db.objectStoreNames.contains("data")){db.close();resolve(null);return;}const read=db.transaction("data").objectStore("data").get("archive");read.onsuccess=()=>{db.close();resolve(read.result);};read.onerror=()=>{db.close();reject(read.error);};};});
+      if(!old)throw new Error("No hay recuerdos anteriores guardados aquí.");
+      const incoming=validateArchive(old),map=new Map(archive.memories.map(m=>[m.id,m])),letters=new Map(archive.letters.map(l=>[l.id,l]));
+      incoming.memories.forEach(m=>{const existing=map.get(m.id);if(!existing || m.updated>existing.updated){if(existing&&!m.src.startsWith("data:"))map.set(m.id,{...existing,...m,src:existing.src,thumb:existing.thumb});else if(m.src.startsWith("data:"))map.set(m.id,m);}});
+      incoming.letters.forEach(l=>{if(!letters.has(l.id)||l.updated>letters.get(l.id).updated)letters.set(l.id,l);});
+      await saveArchive({memories:[...map.values()],letters:[...letters.values()],favorites:[...new Set([...archive.favorites,...incoming.favorites])]});
+      renderAll();toast("Recuerdos recuperados. La copia anterior sigue intacta en este navegador.");
+    }catch(error){$("#admin-error").textContent=error.message;}
+  });
+  api("/api/session").then(async session=>{
+    auth=session;
+    if(session.authenticated)await openArchive(false);
+    else if(session.retryAfter){cooldownUntil=Date.now()+session.retryAfter*1000;updateCooldown();}
+  }).catch(error=>{$("#gate-message").textContent=error.message+" Inicia la web con npm start.";});
+})();
