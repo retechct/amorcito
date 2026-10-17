@@ -73,7 +73,7 @@
     } catch { throw new Error("No se pudo conectar. Comprueba que el servidor esté encendido."); }
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = new Error(result.error || "No se pudo completar la operación.");
+      const error = new Error(result.error || (response.status === 404 ? "La API no está desplegada. Revisa la configuración del servidor en Vercel." : "No se pudo completar la operación."));
       error.status = response.status; error.retryAfter = result.retryAfter || 0;
       if (response.status === 401 && !path.endsWith("/login") && path !== "/api/admin/password") {
         location.reload();
@@ -85,7 +85,9 @@
   async function saveArchive(next) {
     if (auth.role !== "admin") throw new Error("Abre el taller con tu clave de administración.");
     try {
-      archive = await api("/api/archive", "PUT", {...next, revision:archive.revision});
+      const revision = archive.revision;
+      if (auth.uploadMode === "cloudinary") next = await uploadCloudMemories(next);
+      archive = await api("/api/archive", "PUT", {...next, revision});
     } catch (error) {
       if (error.status === 409) {
         archive = await api("/api/archive");
@@ -94,6 +96,47 @@
       }
       throw error;
     }
+  }
+  function dataBlob(source) {
+    const match = typeof source === "string" && source.match(/^data:(image\/(?:jpeg|png|webp)|video\/mp4);base64,([A-Za-z0-9+/=]+)$/);
+    if (!match || source.length > 28 * 1024 * 1024) throw new Error("Archivo no válido o superior a 20 MB.");
+    const bytes = Uint8Array.from(atob(match[2]), c => c.charCodeAt(0));
+    if (bytes.length > 20 * 1024 * 1024) throw new Error("Cada archivo debe pesar menos de 20 MB.");
+    return new Blob([bytes], {type:match[1]});
+  }
+  async function cloudUpload(source) {
+    const file = dataBlob(source);
+    const ticket = await api("/api/uploads/sign", "POST", {resourceType:file.type.startsWith("video/")?"video":"image"});
+    const form = new FormData();
+    for (const [key,value] of Object.entries(ticket.fields)) form.append(key, String(value));
+    form.append("file", file);
+    let response;
+    try { response = await fetch(ticket.url, {method:"POST",body:form,credentials:"omit",signal:AbortSignal.timeout(120000)}); }
+    catch { throw new Error("Se interrumpió la carga. Comprueba tu conexión y vuelve a guardar."); }
+    if (!response.ok) throw new Error("Cloudinary no pudo guardar el archivo. Revisa su configuración y espacio disponible.");
+    // Never trust the browser's upload response as proof of ownership/privacy.
+    return (await api("/api/uploads/complete", "POST", {id:ticket.id})).path;
+  }
+  async function cloudThumbnail(source) {
+    const image = new Image(); image.src = source; await image.decode();
+    const scale = Math.min(1, 480 / Math.max(image.naturalWidth,image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth*scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight*scale));
+    canvas.getContext("2d").drawImage(image,0,0,canvas.width,canvas.height);
+    return canvas.toDataURL("image/jpeg",0.82);
+  }
+  async function uploadCloudMemories(next) {
+    const memories=[];
+    for (const memory of next.memories) {
+      if (!memory.src?.startsWith("data:")) { memories.push(memory); continue; }
+      const video=memory.src.startsWith("data:video/");
+      const thumb=video?memory.thumb:await cloudThumbnail(memory.src);
+      if (!thumb?.startsWith("data:image/")) throw new Error("El respaldo del vídeo necesita una miniatura.");
+      const src=await cloudUpload(memory.src), thumbnail=await cloudUpload(thumb);
+      memories.push({...memory,src,thumb:thumbnail,kind:video?"video":"photo"});
+    }
+    return {...next,memories};
   }
   function validateArchive(data) {
     if (!data || !Array.isArray(data.memories) || !Array.isArray(data.letters) || data.memories.length > 2000 || data.letters.length > 200)
@@ -1141,5 +1184,5 @@
     auth=session;
     if(session.authenticated)await openArchive(false);
     else if(session.retryAfter){cooldownUntil=Date.now()+session.retryAfter*1000;updateCooldown();}
-  }).catch(error=>{$("#gate-message").textContent=error.message+" Inicia la web con npm start.";});
+  }).catch(error=>{$("#gate-message").textContent=error.message;});
 })();

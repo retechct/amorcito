@@ -4,16 +4,26 @@
   "version": "1.0.0",
   "description": "Un archivo íntimo de fotografías, álbumes y cartas.",
   "scripts": {
+    "build": "node scripts/build.mjs",
+    "cloud:check": "node --env-file=.env.local scripts/cloud-prepare.mjs --check",
+    "cloud:prepare": "node --env-file=.env.local scripts/cloud-prepare.mjs",
+    "vercel:setup": "node --env-file=.env.local scripts/vercel-setup.mjs",
+    "test:cloud": "node tests/cloud.mjs",
+    "test:cloudinary:live": "node --env-file=.env.local tests/cloudinary-live.mjs",
     "start": "node server.mjs",
     "setup": "node scripts/setup.mjs",
     "import:photos": "python scripts/import-media.py",
     "import:video": "python scripts/import-video.py",
-    "test": "node tests/security.mjs && node tests/browser-secure.cjs"
+    "test": "node tests/cloud.mjs && node tests/security.mjs && node tests/browser-secure.cjs"
   },
+  "engines": { "node": "22.x" },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "playwright": "1.62.1"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "cloudinary": "^2.11.0",
     "sharp": "^0.35.5"
   }
 }

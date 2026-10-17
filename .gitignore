@@ -4,5 +4,9 @@ test-results/
 .private/
 private-media/
 .env
+.env.*
+!.env.example
+.vercel/
+dist/
 *.zip
 *.HEIC

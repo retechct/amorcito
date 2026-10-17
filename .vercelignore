@@ -1,0 +1,11 @@
+.private
+private-media
+.env
+.env.*
+.qa
+tests
+*.jpg
+*.JPG
+*.png
+*.HEIC
+*.zip
