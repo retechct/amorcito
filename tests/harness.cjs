@@ -34,6 +34,12 @@ exports.fixture = async function(full = false) {
     await new Promise((resolve,reject)=>{let log="";const timeout=setTimeout(()=>reject(new Error("Server startup timed out: "+log)),10000);child.stdout.on("data",data=>{log+=data;if(log.includes("Nosotros listo")){clearTimeout(timeout);resolve();}});child.stderr.on("data",data=>log+=data);child.on("exit",code=>{clearTimeout(timeout);reject(new Error("Server exited "+code+": "+log));});});
   };
   const stop=async()=>{if(child && child.exitCode===null)await new Promise(resolve=>{child.once("exit",resolve);child.kill();});};
+  const dispose=async()=>{
+    await stop();
+    const actual=await fs.realpath(dir),parent=await fs.realpath(path.join(root,".qa"));
+    if(path.dirname(actual)!==parent || !path.basename(actual).startsWith("secure-test-"))throw new Error("Refusing to remove a directory outside the QA fixture.");
+    await fs.rm(actual,{recursive:true,force:false});
+  };
   await start();
-  return {base,dir,media,catalog,start,stop};
+  return {base,dir,media,catalog,start,stop,dispose};
 };

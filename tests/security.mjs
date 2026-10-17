@@ -59,4 +59,4 @@ try{
  const credentials=await readFile(env.dir+"/credentials.json","utf8");
  assert.ok(!credentials.includes(entry)&&!credentials.includes(admin));
  console.log("PASS: protected media/API, allowlist, HttpOnly sessions, CSRF, role separation, hidden memories, optimistic writes, password rotation, concurrent brute force, spoofed IP and persistent cooldown.");
-}finally{await env.stop();}
+}finally{await env.dispose();}

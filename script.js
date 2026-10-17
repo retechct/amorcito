@@ -438,6 +438,11 @@
         card.addEventListener("click",()=>{const delta=Number(card.dataset.slot);if(delta){orbitIndex+=delta;renderOrbit();}else openMemory(memory.id,orbitMemories().map(m=>m.id));});
         target.append(card);
       }
+      const orbitImage = $("img",card);
+      const orbitSource = memory.thumb || memory.src;
+      if(orbitImage.getAttribute("src") !== orbitSource)orbitImage.src = orbitSource;
+      orbitImage.alt = memory.title;
+      $(".orbit-card-caption",card).textContent = memory.kind === "video" ? "▶ Volver a este momento" : memory.title;
       card.dataset.slot=slot;card.style.setProperty("--slot",slot);card.style.setProperty("--depth",Math.abs(slot));
       card.classList.toggle("is-center",slot===0);card.setAttribute("aria-label",(slot===0?"Abrir recuerdo: ":"Acercar: ")+memory.title);
       card.style.zIndex=String(10-Math.abs(slot));

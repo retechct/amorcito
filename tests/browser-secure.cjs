@@ -112,11 +112,14 @@ async function noOverflow(page,label){
   await phone.locator("#admin-dialog").waitFor({state:"visible"});await noOverflow(phone,"Admin mobile");
   assert.ok(await phone.locator("#admin-dialog").evaluate(el=>el.scrollWidth<=el.clientWidth+1),"Admin dialog overflow");
   await phone.screenshot({path:path.join(root,".qa","secure-mobile-admin.png")});
+  await phone.setViewportSize({width:320,height:740});
+  await noOverflow(phone,"Small mobile");
+  assert.ok(await phone.locator("#admin-dialog").evaluate(el=>el.scrollWidth<=el.clientWidth+1),"Small mobile admin overflow");
   await phone.locator("#admin-dialog [data-close]").click();await phone.locator("#lock-again").click();await phone.locator("#secret-gate").waitFor({state:"visible"});
   for(let i=0;i<5;i++){const response=phone.waitForResponse(r=>r.url().endsWith("/api/login"));await phone.locator("#unlock-button").click();await response;await phone.waitForTimeout(200);}
   await phone.reload();await phone.waitForFunction(()=>document.querySelector("#unlock-button").disabled);
   assert.match(await phone.locator("#gate-message").innerText(),/descansando/);
   assert.deepEqual(errors,[]);
   console.log("PASS: 81 imports, gated images, explicit login, 3D gallery, favorites, month filters, pagination, admin batch edits, featured/hidden states, uploads, persistence, video, logout, desktop/mobile layouts.");
- }finally{await browser.close();await env.stop();}
+ }finally{await browser.close();await env.dispose();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
