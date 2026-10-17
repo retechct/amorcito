@@ -13,7 +13,8 @@ import { seedCloud } from '../scripts/cloud-prepare.mjs';
 import { environmentPayload, syncEnvironment, vercelAPI } from '../scripts/vercel-env.mjs';
 
 const db=new PGlite();
-const store={query:async(text,params=[]) => (await db.query(text,params)).rows,
+let queryCount=0,upstreamCount=0;
+const store={query:async(text,params=[]) => {queryCount++;return (await db.query(text,params)).rows;},
   transaction:statements=>db.transaction(async tx=>{const results=[];for(const [text,params=[]] of statements)results.push((await tx.query(text,params)).rows);return results;})};
 let server,upstream,temporary,browser;
 try {
@@ -50,12 +51,12 @@ try {
   assert.equal(seeded.uploaded,3);assert.equal(uploads,3);
   assert.equal((await seedCloud({store,media,archive:initial,credentials,mediaDir:temporary})).alreadyInitialized,true);
   assert.equal(uploads,3);
-  upstream=http.createServer((req,res)=>{res.setHeader('Content-Type','image/jpeg');res.setHeader('Content-Length',fixtureImage.length);res.end(fixtureImage);});
+  upstream=http.createServer((req,res)=>{upstreamCount++;res.setHeader('Content-Type','image/jpeg');res.setHeader('Content-Length',fixtureImage.length);res.end(fixtureImage);});
   upstream.listen(0,'127.0.0.1');await once(upstream,'listening');
   const upstreamURL='http://127.0.0.1:'+upstream.address().port;
   let handler;
   server=http.createServer(async(req,res)=>{
-    const files={'/':['index.html','text/html'],'/script.js':['script.js','text/javascript'],'/style.css':['style.css','text/css'],'/favicon.svg':['favicon.svg','image/svg+xml']};
+    const files={'/':['index.html','text/html'],'/script.js':['script.js','text/javascript'],'/photo-cache.mjs':['photo-cache.mjs','text/javascript'],'/style.css':['style.css','text/css'],'/favicon.svg':['favicon.svg','image/svg+xml']};
     const pathname=new URL(req.url,'http://localhost').pathname;
     if(req.method==='GET' && files[pathname]){const [file,type]=files[pathname];res.writeHead(200,{'Content-Type':type,'Content-Security-Policy':csp});res.end(await readFile(file));return;}
     return handler(req,res);
@@ -80,11 +81,25 @@ try {
   assert.equal(publicArchive.memories.length,1);assert.equal(publicArchive.memories[0].originalName,undefined);
   assert.equal((await call(initial.memories[1].src,v)).status,404);
   const image=await call(photo,v);assert.equal(image.status,200);assert.equal(image.headers.get('content-length'),String(fixtureImage.length));assert.match(image.headers.get('cache-control'),/no-store/);
+  const queriesBefore=queryCount,upstreamBefore=upstreamCount;
+  const smaller=await call(photo+'?size=960',v);
+  assert.equal(smaller.status,200);assert.equal(smaller.headers.get('content-type'),'image/webp');
+  assert.equal(queryCount-queriesBefore,1,'one live permission query per photo');
+  assert.equal(upstreamCount-upstreamBefore,1);
+  assert.match(smaller.headers.get('cache-control'),/private, no-store/);
+  const warm=await call(photo+'?size=960',v);assert.equal(warm.status,200);
+  assert.equal(upstreamCount-upstreamBefore,1,'warm private variants avoid provider roundtrip');
+  assert.equal(queryCount-queriesBefore,2,'a warm variant still rechecks authorization');
+  assert.equal((await call(photo+'?size=960')).status,401);
+  const concurrentBefore=upstreamCount;
+  const simultaneous=await Promise.all([call(photo+'?size=480',v),call(photo+'?size=480',v)]);
+  assert(simultaneous.every(r=>r.status===200));assert.equal(upstreamCount-concurrentBefore,1,'variant generation is deduplicated');
   assert.equal((await call('/api/uploads/sign',{...v,method:'POST',data:{resourceType:'image'}})).status,403);
   assert.equal((await call('/api/favorite',{cookie:v.cookie,method:'POST',data:{id:'visible',favorite:true}})).status,403);
   assert.equal((await call('/api/favorite',{...v,method:'POST',data:{id:'visible',favorite:true}})).status,200);
   const admin=await call('/api/admin/login',{...v,method:'POST',data:{password:'test-admin-secret-long'}});
   assert.equal(admin.status,200);const a={cookie:admin.cookie,csrf:admin.body.csrf};
+  assert.equal((await call(initial.memories[1].src+'?size=960',a)).status,200,'admin may warm a hidden photo');
   assert.equal((await call('/api/archive',v)).status,401,'privilege elevation revokes old cookie');
   assert.equal((await call('/api/uploads/sign',{...a,method:'POST',data:{resourceType:'raw'}})).status,400);
   const ticket=await call('/api/uploads/sign',{...a,method:'POST',data:{resourceType:'image'}});
@@ -105,8 +120,10 @@ try {
   const a2={cookie:changed.cookie,csrf:changed.body.csrf};
   const downgraded=await call('/api/admin/logout',{...a2,method:'POST',data:{}});
   assert.equal(downgraded.body.role,'viewer');assert.equal(downgraded.body.uploadMode,'cloudinary');
+  assert.equal((await call(initial.memories[1].src+'?size=960',{cookie:downgraded.cookie})).status,404,'viewer cannot access cached admin-only photo');
   await call('/api/logout',{cookie:downgraded.cookie,csrf:downgraded.body.csrf,method:'POST',data:{}});
   assert.equal((await call(photo,{cookie:downgraded.cookie})).status,401);
+  assert.equal((await call(photo+'?size=960',{cookie:downgraded.cookie})).status,401,'logout also revokes access to cached variants');
   const failed=await Promise.all(Array.from({length:9},()=>call('/api/login',{method:'POST',data:{password:'000000'},headers:{'X-Forwarded-For':Math.random().toString()}})));
   assert.equal(failed.filter(result=>result.status===401).length,4);
   assert.equal(failed.filter(result=>result.status===429).length,5);
@@ -172,7 +189,7 @@ try {
   const config=JSON.parse(await readFile('vercel.json','utf8'));
   assert.equal(config.headers[0].headers.find(x=>x.key==='Content-Security-Policy').value,csp);
   await import('../scripts/build.mjs');
-  assert.deepEqual((await readdir('dist')).sort(),['favicon.svg','index.html','script.js','style.css']);
+  assert.deepEqual((await readdir('dist')).sort(),['favicon.svg','index.html','photo-cache.mjs','script.js','style.css']);
   console.log('Deployment: build público mínimo, sincronización solo de variables permitidas y errores seguros OK.');
 } finally {
   if(browser)await browser.close();

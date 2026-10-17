@@ -1331,6 +1331,23 @@ body.has-dialog {
   justify-content: space-between;
   color: #e9daca;
 }
+.viewer-stage > #viewer-photo:not([src]) { opacity: 0; }
+.viewer-stage > #viewer-photo { animation: none; }
+.viewer-feedback {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 65px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  color: #f3e5d5;
+  font-size: 11px;
+  pointer-events: none;
+}
+.viewer-feedback > :not([hidden]) { background: #261b20e8; padding: 7px 12px; border-radius: 20px; }
+.viewer-feedback button { color: inherit; pointer-events: auto; }
 .viewer-navigation .icon-button {
   color: #e9daca;
   border-color: #e9daca40;

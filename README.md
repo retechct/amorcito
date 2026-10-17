@@ -36,7 +36,7 @@ git commit -m "Preparar archivo privado para Vercel, Neon y Cloudinary"
 git push
 ```
 
-Vercel usa `vercel.json`, ejecuta `npm run build`, publica solo los cuatro archivos permitidos de `dist/` y crea la función que atiende `/api/*` y `/media/*`. Debes hacer el push a la rama configurada como producción. El asistente no hace commits, pushes ni despliegues por su cuenta.
+Vercel usa `vercel.json`, ejecuta `npm run build`, publica solo los archivos permitidos de `dist/` (HTML, CSS, JavaScript, módulo de fotos y favicon) y crea la función que atiende `/api/*` y `/media/*`. Debes hacer el push a la rama configurada como producción. El asistente no hace commits, pushes ni despliegues por su cuenta.
 
 ### Después de la primera configuración
 
@@ -123,7 +123,7 @@ La comprobación ocurre en el servidor. La fecha, su hash y el contenido del arc
 - Contadores persistidos en SQLite en local y **Neon en Vercel**: recargar, borrar cookies o desplegar de nuevo no elimina el bloqueo. En Neon se reservan intentos de forma atómica, compartidos entre instancias. En Vercel se usa la IP que proporciona la plataforma; en local se ignoran cabeceras de IP arbitrarias.
 - Sesiones aleatorias con cookies **HttpOnly, SameSite=Strict**, expiración y revocación. Visita: 12 horas; administración: 1 hora.
 - Comprobación de origen y token CSRF en cambios. El servidor comprueba los permisos, aunque alguien altere la interfaz.
-- Cada foto, miniatura y vídeo exige una sesión; los ocultos solo se entregan a administración. Caché desactivada para contenido privado.
+- Cada foto, miniatura y vídeo exige una sesión; los ocultos solo se entregan a administración. La caché HTTP/CDN sigue desactivada para contenido privado. Las imágenes ya autorizadas se reutilizan únicamente en memoria, como se explica a continuación.
 - En Cloudinary se usa `authenticated` para originales y miniaturas. El servidor descarga mediante un enlace de 60 segundos y entrega el contenido por `/media/`; no devuelve un enlace permanente firmado al navegador. Esas descargas privadas pueden consumir más ancho de banda que la entrega pública por CDN: revisa las cuotas de Vercel, Neon y Cloudinary.
 - Guardado con revisión: se rechazan sobrescrituras si otra sesión actualizó el archivo. Se recarga la versión nueva y se pide revisar el cambio.
 - No hay eliminación permanente de fotos en la interfaz.
@@ -131,6 +131,17 @@ La comprobación ocurre en el servidor. La fecha, su hash y el contenido del arc
 **No es invulnerable.** Una fecha de seis dígitos sigue siendo un secreto débil para alguien que conoce vuestra historia. Los límites reducen la fuerza bruta, pero no evitan que alguien conozca o adivine la fecha; un atacante también podría provocar bloqueos temporales. No son protección DDoS. Para fotografías especialmente sensibles conviene una contraseña de entrada larga o autenticación adicional. Las personas que ya tuvieron acceso pueden guardar copias. Los archivos en el disco del servidor no están cifrados por esta aplicación.
 
 Criterios de referencia: [autenticación de OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) y [sesiones de OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
+
+## Carga rápida de fotografías
+
+- El visor retira inmediatamente la foto anterior al avanzar, muestra la miniatura del recuerdo correcto y la sustituye por la foto nítida después de decodificarla. Una respuesta atrasada no puede reemplazar el recuerdo seleccionado. Si falla, aparece **Volver a cargar**.
+- Se precargan la siguiente foto, la anterior y una más hacia delante. El botón **Sorpréndeme** evita repetir el último recuerdo elegido. No se descargan vídeos completos por anticipado.
+- Galería, álbumes, portada, universo y taller comparten las fotos en memoria de la pestaña: máximo 32 MB de imágenes comprimidas y 220 entradas, con peticiones simultáneas limitadas y prioridad para el visor. No se guardan en localStorage, IndexedDB, Service Worker ni Cache API. Al cerrar el candado, salir de administración o abandonar la página se cancelan las cargas y se revocan las URLs temporales.
+- Tras abrir el candado se preparan poco a poco hasta 200 miniaturas, sin bloquear las fotos visibles. Se pausa al ocultar la pestaña o abrir el visor y se desactiva con ahorro de datos o conexión 2G detectados. Ahorro de datos también desactiva la precarga de fotos vecinas.
+- En Vercel se entregan versiones WebP de 480 px para miniaturas, 960 px para el visor móvil y 1600 px para escritorio, sin recortar ni ampliar la imagen original. El servidor comprueba sesión y visibilidad en **una consulta** por petición. Puede reutilizar variantes durante cinco minutos en la memoria de la instancia (hasta 32 MB), pero vuelve a autorizar cada solicitud, incluso cuando ya tiene la imagen preparada.
+- Los originales y los respaldos no se modifican. La primera visita depende de la conexión y del arranque del servidor; no se promete carga instantánea sin red. En una muestra local de 16 fotografías, las versiones móviles redujeron el peso total un 76 % y las de escritorio un 50 %.
+
+Estos cambios solo requieren desplegar el código mediante commit y push: **no hay que repetir `vercel:setup` ni importar otra vez las fotos**. Para probar específicamente navegación rápida, cargas lentas/fuera de orden, reintentos y limpieza de memoria: `npm run test:photos`.
 
 ## Respaldos y versión anterior
 
@@ -175,6 +186,7 @@ Las pruebas arrancan servidores aislados con claves y datos de prueba. No editan
 ## Estructura
 
 - `index.html`, `style.css`, `script.js`: experiencia e interfaz.
+- `photo-cache.mjs`, `server/photo-variants.mjs`: carga priorizada en la pestaña y variantes WebP privadas.
 - `server.mjs`, `server/security.mjs`: servidor, acceso, límites y persistencia.
 - `api/router.mjs`, `server/cloud-*.mjs`: API Vercel, Neon y medios privados.
 - `vercel.json`, `scripts/build.mjs`: rutas y compilación pública por lista permitida.

@@ -4,6 +4,7 @@ import { token, digest, verifyPassword, hashPassword } from './security.mjs';
 import { getArchive, cooldown, attempt, putAsset } from './cloud-store.mjs';
 import { HttpError, validateArchive } from './cloud-validation.mjs';
 import { mediaPattern } from './cloud-media.mjs';
+import { createPhotoVariants, variantSize } from './photo-variants.mjs';
 
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
 export const csp="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://api.cloudinary.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
@@ -29,13 +30,18 @@ async function body(req,max=3_800_000) {
 }
 
 export function createHandler({store,media,env=process.env,secure=true}) {
+  const photoVariant=createPhotoVariants();
   const origins=new Set([env.APP_ORIGIN,...[env.VERCEL_URL,env.VERCEL_PROJECT_PRODUCTION_URL].filter(Boolean).map(host=>'https://'+host)].filter(Boolean));
   const clientKey=req=>digest(env.VERCEL==='1'?String(req.headers['x-vercel-forwarded-for']||req.headers['x-forwarded-for']||'unknown').split(',')[0].trim():(req.socket.remoteAddress||'unknown'));
   function originCheck(req){if(!origins.has(req.headers.origin) || req.headers['sec-fetch-site']==='cross-site')throw new HttpError(403,'Origen no permitido. Comprueba APP_ORIGIN si usas un dominio propio.');}
-  async function session(req){
+  function sessionHash(req){
     const raw=String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('nosotros_session='))?.slice(17);
     if(!raw || !/^[A-Za-z0-9_-]{40,50}$/.test(raw))return null;
-    return (await store.query('SELECT * FROM nosotros.sessions WHERE hash=$1 AND expires>$2',[digest(raw),Date.now()]))[0] || null;
+    return digest(raw);
+  }
+  async function session(req){
+    const hash=sessionHash(req);if(!hash)return null;
+    return (await store.query('SELECT * FROM nosotros.sessions WHERE hash=$1 AND expires>$2',[hash,Date.now()]))[0] || null;
   }
   async function requireSession(req,role){const current=await session(req);if(!current)throw new HttpError(401,'Abre el candado para continuar.');if(role && current.role!==role)throw new HttpError(403,'Esta acción necesita acceso de administración.');return current;}
   async function requireWrite(req,role='admin'){originCheck(req);const current=await requireSession(req,role);if(req.headers['x-csrf-token']!==current.csrf)throw new HttpError(403,'Recarga la página para renovar la sesión.');return current;}
@@ -125,10 +131,27 @@ export function createHandler({store,media,env=process.env,secure=true}) {
         return json(res,200,{path:asset.path});
       }
       if(['GET','HEAD'].includes(req.method) && mediaPattern.test(path)){
-        const current=await requireSession(req),data=await archive();
-        if(!data.memories.some(m=>(m.src===path || m.thumb===path) && (!m.hidden || current.role==='admin')))throw new HttpError(404,'Recuerdo no encontrado.');
-        const [asset]=await store.query('SELECT * FROM nosotros.assets WHERE path=$1',[path]);
-        if(!asset)throw new HttpError(404,'Archivo no encontrado.');
+        const hash=sessionHash(req);if(!hash)throw new HttpError(401,'Abre el candado para continuar.');
+        // One round trip, with live session + visibility checks EVEN for a warm
+        // variant. Never cache authorization or send the full archive per photo.
+        const [asset]=await store.query(`SELECT s.role,a.path,a.public_id,a.resource_type,a.format,a.bytes
+          FROM nosotros.sessions s LEFT JOIN nosotros.assets a ON a.path=$2 AND EXISTS (
+            SELECT 1 FROM nosotros.archive ar CROSS JOIN LATERAL jsonb_array_elements(ar.payload->'memories') m
+            WHERE ar.id=1 AND (m->>'src'=$2 OR m->>'thumb'=$2) AND (s.role='admin' OR m->>'hidden' IS DISTINCT FROM 'true')
+          ) WHERE s.hash=$1 AND s.expires>$3`,[hash,path,Date.now()]);
+        if(!asset)throw new HttpError(401,'Abre el candado para continuar.');
+        if(!asset.path)throw new HttpError(404,'Recuerdo no encontrado.');
+        const size=asset.resource_type==='image'?variantSize(url.searchParams.get('size')):0;
+        if(size){
+          const output=await photoVariant(asset.public_id,size,async()=>{
+            const response=await fetch(media.download(asset),{signal:AbortSignal.timeout(25000)});
+            if(!response.ok){await response.body?.cancel();throw new HttpError(502,'No se pudo recuperar este recuerdo.');}
+            if(Number(response.headers.get('content-length'))>20*1024*1024){await response.body?.cancel();throw new HttpError(413,'Imagen demasiado grande.');}
+            return Buffer.from(await response.arrayBuffer());
+          });
+          res.setHeader('Content-Type','image/webp');res.setHeader('Content-Length',String(output.length));
+          res.statusCode=200;res.end(req.method==='HEAD'?undefined:output);return;
+        }
         const range=req.headers.range;
         if(range && !/^bytes=\d+-\d*$/.test(range))throw new HttpError(416,'Rango no válido.');
         const upstream=await fetch(media.download(asset),{method:req.method,headers:range?{Range:range}:{},signal:AbortSignal.timeout(25000)});

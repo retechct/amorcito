@@ -1,4 +1,5 @@
 /* Nosotros — un archivo íntimo. Autenticación y persistencia en el servidor. */
+import { createPhotoCache } from './photo-cache.mjs';
 (() => {
   "use strict";
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -8,6 +9,76 @@
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   let START = null;
   let auth = { authenticated: false, role: null, csrf: null };
+  const photoCache = createPhotoCache();
+  let photoSessionLost = false;
+  let mediaGeneration = 0, viewerGeneration = 0, warmTimer;
+  const watchedImages = new Set();
+  const lazyPhotos = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting) {
+      lazyPhotos.unobserve(entry.target); watchedImages.delete(entry.target);
+      loadManagedPhoto(entry.target, entry.target.dataset.photoSource, 80);
+    }
+  }, {rootMargin:'500px'}) : null;
+  const photoSource = (memory, thumbnail = false) => {
+    const src = thumbnail ? (memory.thumb || memory.src) : memory.src;
+    if (!src || src.endsWith('.mp4')) return null;
+    const size = thumbnail ? 480 : (matchMedia('(max-width: 700px)').matches ? 960 : 1600);
+    return auth.uploadMode === 'cloudinary' ? src + '?size=' + size : src;
+  };
+  function forgetPrivatePhotos() {
+    mediaGeneration++; viewerGeneration++; clearTimeout(warmTimer);
+    lazyPhotos?.disconnect(); watchedImages.clear(); photoCache.clear();
+    $$('img[data-photo-source], #viewer-photo').forEach(img => { img.removeAttribute('src'); delete img.dataset.photoSource; });
+    $('#viewer-video').pause(); $('#viewer-video').removeAttribute('src'); $('#viewer-video').removeAttribute('poster');
+    delete $('.viewer-stage').dataset.memoryId;
+  }
+  function loadPhoto(source,priority) {
+    return photoCache.load(source,priority).catch(error=>{
+      if(error.status===401 && !photoSessionLost){photoSessionLost=true;forgetPrivatePhotos();location.reload();}
+      throw error;
+    });
+  }
+  function prunePhotoObservers() {
+    for (const img of watchedImages) if (!img.isConnected) { lazyPhotos?.unobserve(img); watchedImages.delete(img); }
+  }
+  function loadManagedPhoto(img, source, priority) {
+    if (!source) return;
+    const generation = mediaGeneration;
+    const cached = photoCache.peek(source);
+    if (cached) { img.src = cached; return; }
+    loadPhoto(source, priority).then(url => {
+      if (generation === mediaGeneration && img.dataset.photoSource === source && img.isConnected) img.src = url;
+    }).catch(() => { /* The viewer offers retry; failed thumbnails retry on next render. */ });
+  }
+  function managedPhoto(img, memory, {thumbnail=true,lazy=true,priority=80}={}) {
+    const source = photoSource(memory,thumbnail);
+    if (!source) return;
+    if (img.dataset.photoSource === source && img.hasAttribute('src')) return;
+    img.dataset.photoSource = source; img.decoding = 'async';
+    img.removeAttribute('src');
+    const cached = photoCache.peek(source);
+    if (cached) { img.src = cached; return; }
+    if (lazy && lazyPhotos) {watchedImages.add(img);lazyPhotos.observe(img);}
+    else loadManagedPhoto(img,source,priority);
+  }
+  function warmThumbnails() {
+    clearTimeout(warmTimer);
+    if (!unlocked || document.hidden || navigator.connection?.saveData || /(^|-)2g$/.test(navigator.connection?.effectiveType || '')) return;
+    const generation = mediaGeneration;
+    const sources = [...new Set(visibleMemories().slice(0,200).map(m=>photoSource(m,true)).filter(Boolean))];
+    let index=0;
+    async function next() {
+      if (generation!==mediaGeneration || document.hidden || !unlocked) return;
+      if ($('#memory-dialog').open) {warmTimer=setTimeout(next,1000);return;}
+      while(index<sources.length && photoCache.peek(sources[index]))index++;
+      if(index===sources.length)return;
+      await loadPhoto(sources[index++],0).catch(()=>{});
+      if(generation===mediaGeneration)warmTimer=setTimeout(next,150);
+    }
+    warmTimer=setTimeout(next,1200);
+  }
+  window.addEventListener('pagehide',forgetPrivatePhotos);
+  window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});
   let cooldownUntil = 0, checking = false, adminCooldownUntil = 0;
   let monthFilter = "all", photoLimit = 24, orbitIndex = 0;
   const selected = new Set();
@@ -76,6 +147,7 @@
       const error = new Error(result.error || (response.status === 404 ? "La API no está desplegada. Revisa la configuración del servidor en Vercel." : "No se pudo completar la operación."));
       error.status = response.status; error.retryAfter = result.retryAfter || 0;
       if (response.status === 401 && !path.endsWith("/login") && path !== "/api/admin/password") {
+        forgetPrivatePhotos();
         location.reload();
       }
       throw error;
@@ -266,12 +338,13 @@
     renderAll();
     updateCounter();
     startReveals();
+    warmThumbnails();
     window.scrollTo({ top: 0, behavior: "instant" });
     $("#hero-title").focus({ preventScroll: true });
     setTimeout(() => document.body.classList.remove("app-enter"), 1600);
   }
   $("#lock-again").addEventListener("click", async () => {
-    try { await api("/api/logout","POST",{}); location.reload(); }
+    try { await api("/api/logout","POST",{}); forgetPrivatePhotos(); location.reload(); }
     catch(error) { toast(error.message); }
   });
   function updateCounter() {
@@ -287,6 +360,7 @@
   }
   setInterval(updateCounter, 1000);
   document.addEventListener("visibilitychange", updateCounter);
+  document.addEventListener("visibilitychange", () => { if(document.hidden)clearTimeout(warmTimer);else warmThumbnails(); });
 
   function startReveals() {
     if (reducedMotion.matches || !("IntersectionObserver" in window)) return;
@@ -341,7 +415,7 @@
     button.dataset.memory = memory.id;
     const thumb = node("div", "memory-thumb");
     const img = node("img");
-    img.src = memory.thumb || memory.src;
+    managedPhoto(img,memory);
     img.alt = memory.title;
     img.loading = "lazy";
     thumb.append(img);
@@ -371,6 +445,7 @@
     syncDesk();
     applyRole();
     if ($("#admin-dialog").open) renderAdmin();
+    prunePhotoObservers();
     startReveals();
   }
   function syncDesk() {
@@ -378,7 +453,7 @@
     $$(".polaroid").forEach((card,i) => {
       const memory = choices.find(m=>m.id===card.dataset.memory) || choices[i];
       card.hidden = !memory;
-      if (memory) {card.dataset.memory=memory.id; const img=$("img",card);if(img.getAttribute("src")!==memory.src)img.src=memory.src;img.alt=memory.title;card.setAttribute("aria-label","Abrir "+memory.title);}
+      if (memory) {card.dataset.memory=memory.id; const img=$("img",card);managedPhoto(img,memory,{thumbnail:false,lazy:false,priority:90});img.alt=memory.title;card.setAttribute("aria-label","Abrir "+memory.title);}
     });
   }
   function renderAlbums() {
@@ -393,7 +468,7 @@
       card.style.setProperty("--reveal-delay", Math.min(index, 2) * 90 + "ms");
       const cover = node("div", "album-cover");
       const img = node("img");
-      img.src = memories[0].thumb || memories[0].src;
+      managedPhoto(img,memories[0]);
       img.alt = "";
       img.loading = "lazy";
       const copy = node("div", "album-cover-text");
@@ -446,6 +521,7 @@
     $("#more-photos").hidden = memories.length <= photoLimit;
     $("#empty-favorites").hidden = memories.length > 0;
     $("#empty-favorites").textContent = filter === "favorites" ? "Aún no hay favoritos aquí. Abre un recuerdo y toca su corazón." : "Todavía no hay recuerdos en este mes.";
+    prunePhotoObservers();
   }
   $("#more-photos").addEventListener("click",()=>{photoLimit+=24;renderPhotos();});
   function renderTimeline() {
@@ -476,14 +552,13 @@
       let card=old.get(memory.id);
       if(!card) {
         card=node("button","orbit-card");card.type="button";card.dataset.orbitId=memory.id;
-        const image=node("img");image.src=memory.thumb || memory.src;image.alt=memory.title;image.draggable=false;
+        const image=node("img");image.alt=memory.title;image.draggable=false;
         card.append(image,node("span","orbit-card-caption",memory.kind==="video"?"▶ Volver a este momento":memory.title));
         card.addEventListener("click",()=>{const delta=Number(card.dataset.slot);if(delta){orbitIndex+=delta;renderOrbit();}else openMemory(memory.id,orbitMemories().map(m=>m.id));});
         target.append(card);
       }
       const orbitImage = $("img",card);
-      const orbitSource = memory.thumb || memory.src;
-      if(orbitImage.getAttribute("src") !== orbitSource)orbitImage.src = orbitSource;
+      managedPhoto(orbitImage,memory,{lazy:false});
       orbitImage.alt = memory.title;
       $(".orbit-card-caption",card).textContent = memory.kind === "video" ? "▶ Volver a este momento" : memory.title;
       card.dataset.slot=slot;card.style.setProperty("--slot",slot);card.style.setProperty("--depth",Math.abs(slot));
@@ -529,7 +604,11 @@
       if (!$$("dialog[open]").length)
         document.body.classList.remove("has-dialog");
       if (dialog.id === "editor-dialog") clearPreviews();
-      if (dialog.id === "memory-dialog") $("#viewer-video").pause();
+      if (dialog.id === "memory-dialog") {
+        viewerGeneration++; $('#viewer-video').pause(); $('#viewer-video').removeAttribute('src');
+        $('#viewer-photo').removeAttribute('src'); delete $('.viewer-stage').dataset.memoryId;
+        warmThumbnails();
+      }
     });
     dialog.addEventListener("click", (event) => {
       if (event.target !== dialog) return;
@@ -555,6 +634,7 @@
       albumDescriptions[activeAlbum] ||
       "Un lugar para volver a nuestros momentos, uno a uno.";
     $("#album-dialog-photos").replaceChildren(...memories.map(makeMemoryCard));
+    prunePhotoObservers();
   }
   $("#add-to-album").addEventListener("click", () =>
     openEditor("memory", null, activeAlbum),
@@ -572,16 +652,12 @@
     const memory = currentMemory();
     if (!memory) return;
     const photo = $("#viewer-photo");
-    const video = $("#viewer-video");
-    video.pause();
-    video.hidden = memory.kind !== "video";
-    photo.hidden = memory.kind === "video";
-    if (memory.kind === "video") {video.src=memory.src;video.poster=memory.thumb || "";}
-    else {video.removeAttribute("src");photo.src=memory.src;}
+    const stage = $('.viewer-stage');
+    if (stage.dataset.memoryId !== memory.id || stage.dataset.source !== memory.src) {
+      stage.dataset.memoryId=memory.id; stage.dataset.source=memory.src;
+      loadViewerPhoto(memory);
+    }
     photo.alt = memory.title;
-    photo.style.animation = "none";
-    void photo.offsetWidth;
-    photo.style.animation = "";
     $("#memory-album").textContent = memory.album;
     $("#memory-title").textContent = memory.title;
     $("#memory-date").textContent = prettyDate(memory.date);
@@ -598,6 +674,48 @@
     $("#prev-memory").disabled = $("#next-memory").disabled =
       viewerIds.length < 2;
   }
+  function loadViewerPhoto(memory) {
+    const version=++viewerGeneration,generation=mediaGeneration;
+    const photo=$('#viewer-photo'),video=$('#viewer-video'),stage=$('.viewer-stage'),status=$('#viewer-status'),retry=$('#viewer-retry');
+    const current=()=>version===viewerGeneration && generation===mediaGeneration;
+    // Clear synchronously: a new counter must NEVER label the preceding photo.
+    photo.removeAttribute('src'); photo.dataset.memoryId=memory.id; photo.dataset.quality='loading';
+    video.pause();video.removeAttribute('src');video.removeAttribute('poster');
+    video.hidden=memory.kind!=='video'; photo.hidden=memory.kind==='video';
+    retry.hidden=true; status.hidden=false; status.textContent='Acercando este recuerdo…';stage.setAttribute('aria-busy','true');
+    let fullShown=false;
+    async function display(url,full) {
+      const decoded=new Image(); decoded.src=url;
+      await decoded.decode();
+      if(!current() || (!full && fullShown))return;
+      photo.src=url;photo.dataset.quality=full?'full':'preview';
+      if(full){fullShown=true;status.hidden=true;stage.setAttribute('aria-busy','false');}
+      else status.textContent='Afinando los detalles…';
+    }
+    const thumbnail=photoSource(memory,true);
+    if(memory.kind==='video') {
+      video.src=memory.src;
+      loadPhoto(thumbnail,110).then(url=>{if(current())video.poster=url;}).catch(()=>{});
+      status.hidden=true;stage.setAttribute('aria-busy','false');
+    } else {
+      const full=photoSource(memory),cached=photoCache.peek(full),preview=photoCache.peek(thumbnail);
+      if(cached)display(cached,true).catch(()=>showFailure());
+      else {
+        if(preview)display(preview,false).catch(()=>{});
+        else loadPhoto(thumbnail,120).then(url=>display(url,false)).catch(()=>{});
+        loadPhoto(full,110).then(url=>display(url,true)).catch(()=>showFailure());
+      }
+    }
+    function showFailure(){if(!current())return;status.hidden=false;status.textContent='Esta foto está tardando en llegar.';retry.hidden=false;stage.setAttribute('aria-busy','false');}
+    // Only nearby photos, never entire videos or the whole high-resolution archive.
+    if(!navigator.connection?.saveData)for(const offset of [1,-1,2]) {
+      const next=archive.memories.find(m=>m.id===viewerIds[(viewerIndex+offset+viewerIds.length)%viewerIds.length]);
+      if(!next || next.id===memory.id)continue;
+      loadPhoto(photoSource(next,true),30).catch(()=>{});
+      if(next.kind!=='video')loadPhoto(photoSource(next),20).catch(()=>{});
+    }
+  }
+  $('#viewer-retry').addEventListener('click',()=>{const memory=currentMemory();if(memory)loadViewerPhoto(memory);});
   function moveMemory(direction) {
     viewerIndex =
       (viewerIndex + direction + viewerIds.length) % viewerIds.length;
@@ -662,7 +780,8 @@
   });
   $("#random-memory").addEventListener("click", () => {
     const memories=visibleMemories();
-    if(memories.length)openMemory(memories[Math.floor(Math.random()*memories.length)].id);
+    const choices=memories.length>1?memories.filter(m=>m.id!==viewerIds[viewerIndex]):memories;
+    if(choices.length)openMemory(choices[Math.floor(Math.random()*choices.length)].id);
   });
   $$(".filter-tabs button").forEach((button) =>
     button.addEventListener("click", () => {
@@ -1118,7 +1237,7 @@
       const label=node("label","admin-photo");const checkbox=node("input");checkbox.type="checkbox";checkbox.checked=selected.has(memory.id);
       checkbox.setAttribute("aria-label","Seleccionar "+memory.title+" "+(memory.originalName || memory.id));
       checkbox.addEventListener("change",()=>{checkbox.checked?selected.add(memory.id):selected.delete(memory.id);updateSelected();});
-      const img=node("img");img.src=memory.thumb || memory.src;img.alt="";img.loading="lazy";
+      const img=node("img");managedPhoto(img,memory);img.alt="";img.loading="lazy";
       label.append(img,checkbox);
       const badges=node("div","admin-badges");if(memory.featured)badges.append(node("span","","✧ Destacado"));if(memory.hidden)badges.append(node("span","","Oculto"));if(memory.kind==="video")badges.append(node("span","","▶ Vídeo"));
       label.append(badges);const caption=node("div","admin-card-copy");
@@ -1126,7 +1245,7 @@
       const edit=node("button","text-button","Editar detalles ↗");edit.type="button";edit.addEventListener("click",()=>openEditor("memory",memory.id));caption.append(edit);
       card.append(label,caption);return card;
     }));
-    $("#admin-empty").hidden=memories.length>0;updateSelected();
+    $("#admin-empty").hidden=memories.length>0;updateSelected();prunePhotoObservers();
   }
   function updateSelected(){
     $("#selected-count").textContent=selected.size+" seleccionados";
@@ -1153,7 +1272,7 @@
   $("#show-selection").addEventListener("click",()=>bulkUpdate({hidden:false}));
   $("#undate-selection").addEventListener("click",()=>bulkUpdate({month:""}));
   $("#admin-logout").addEventListener("click",async()=>{
-    try{auth=await api("/api/admin/logout","POST",{});archive=await api("/api/archive");selected.clear();$("#admin-dialog").close();renderAll();toast("Taller cerrado. Volvemos a disfrutar lo nuestro.");}
+    try{auth=await api("/api/admin/logout","POST",{});forgetPrivatePhotos();archive=await api("/api/archive");selected.clear();$("#admin-dialog").close();if($('#memory-dialog').open)$('#memory-dialog').close();renderAll();warmThumbnails();toast("Taller cerrado. Volvemos a disfrutar lo nuestro.");}
     catch(error){toast(error.message);}
   });
   $("#refresh-archive").addEventListener("click",async()=>{try{archive=await api("/api/archive");renderAll();toast("Archivo actualizado.");}catch(error){toast(error.message);}});

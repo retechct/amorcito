@@ -193,6 +193,7 @@ const server=http.createServer(async(req,res)=>{
   }
   const staticFiles={'/':['index.html','text/html; charset=utf-8'],'/index.html':['index.html','text/html; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/script.js':['script.js','text/javascript; charset=utf-8']};
   staticFiles['/favicon.svg']=['favicon.svg','image/svg+xml'];
+  staticFiles['/photo-cache.mjs']=['photo-cache.mjs','text/javascript; charset=utf-8'];
   if((req.method==='GET' || req.method==='HEAD') && staticFiles[pathname]){await serveFile(req,res,join(root,staticFiles[pathname][0]),staticFiles[pathname][1]);return;}
   if(pathname==='/favicon.ico'){res.writeHead(204);res.end();return;}
   throw new HttpError(404,'No encontrado.');

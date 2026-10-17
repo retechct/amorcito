@@ -9,12 +9,13 @@
     "cloud:prepare": "node --env-file=.env.local scripts/cloud-prepare.mjs",
     "vercel:setup": "node --env-file=.env.local scripts/vercel-setup.mjs",
     "test:cloud": "node tests/cloud.mjs",
+    "test:photos": "node tests/photo-cache.mjs && node tests/viewer-performance.cjs",
     "test:cloudinary:live": "node --env-file=.env.local tests/cloudinary-live.mjs",
     "start": "node server.mjs",
     "setup": "node scripts/setup.mjs",
     "import:photos": "python scripts/import-media.py",
     "import:video": "python scripts/import-video.py",
-    "test": "node tests/cloud.mjs && node tests/security.mjs && node tests/browser-secure.cjs"
+    "test": "node tests/photo-cache.mjs && node tests/cloud.mjs && node tests/security.mjs && node tests/viewer-performance.cjs && node tests/browser-secure.cjs"
   },
   "engines": { "node": "22.x" },
   "devDependencies": {

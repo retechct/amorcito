@@ -1,7 +1,7 @@
 import { mkdir, copyFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 const output=resolve('dist');
-const files=['index.html','style.css','script.js','favicon.svg'];
+const files=['index.html','style.css','script.js','photo-cache.mjs','favicon.svg'];
 await mkdir(output,{recursive:true});
 // Refuse a polluted output directory rather than publishing private leftovers.
 for(const file of await readdir(output))if(!files.includes(file))throw new Error('dist contiene archivos inesperados; revísala antes de publicar.');
